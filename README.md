@@ -14,5 +14,6 @@ Code for Capinski & Zastawniak, *Mathematics for Finance*. Each chapter is imple
 | [ch08](ch08/) | Option pricing: binomial trees, CRR formula, American options, Black-Scholes |
 | [ch09](ch09/) | Financial engineering: delta/gamma/vega hedging, Greeks, Value at Risk, speculation |
 | [ch10](ch10/) | Variable interest rates: duration, immunisation, dynamic hedging, forward rates, money market |
+| [ch11](ch11/) | Stochastic interest rates: short-rate tree, bond pricing, risk-neutral probabilities, bond options, swaps, caps and floors |
 
 Run `./run_all.sh` inside a chapter to build, test and diff all three languages.
