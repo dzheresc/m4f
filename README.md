@@ -10,5 +10,6 @@ Code for Capinski & Zastawniak, *Mathematics for Finance*. Each chapter is imple
 | [ch04](ch04/) | Discrete time market models: strategies, no arbitrage, FTAP |
 | [ch05](ch05/) | Portfolio management: risk, efficient frontier, CAPM |
 | [ch06](ch06/) | Forward and futures contracts: pricing, value, margin, hedging |
+| [ch08](ch08/) | Option pricing: binomial trees, CRR formula, American options, Black-Scholes |
 
 Run `./run_all.sh` inside a chapter to build, test and diff all three languages.
