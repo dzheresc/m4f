@@ -1,0 +1,30 @@
+Chapter 6: Forward and Futures Contracts (illustrative numbers, book formulas)
+
+== 6.1.1 Forward price: F(0,T) = S(0) e^(rT), S(0)=100 r=0.08 T=0.75 ==
+No dividends: F(0,T)=106.1837
+Dividends 2 at t=0.25 and 2 at t=0.5: F(0,T)=102.0616
+Dividend yield 3%: F(0,T)=103.8212
+Currency 1.25 USD per EUR, r_USD=0.05 r_EUR=0.03, T=1: F=1.2753
+Quoted F=108.0000: cash and carry: buy stock, sell forward, profit at T=1.8163
+Quoted F=104.0000: reverse: short stock, buy forward, profit at T=2.1837
+
+== 6.1.2 Value of a forward contract: V(t) = (F(t,T) - F(0,T)) e^(-r(T-t)) ==
+t=0.5 S(t)=104.0000: F(t,T)=106.1009 long V(t)=-0.0811 short V(t)=0.0811
+t=0.5 S(t)=98.0000: F(t,T)=99.9797 long V(t)=-6.0811 short V(t)=6.0811
+
+== 6.2.1 Futures pricing: f(n) = E*(S(N) | S(n)), S(0)=100 u=0.10 d=-0.05 r=0.03 N=3 ==
+n=0: futures=[109.2727] forward=[109.2727]
+n=1: futures=[116.6990, 100.7855] forward=[116.6990, 100.7855]
+n=2: futures=[124.6300, 107.6350, 92.9575] forward=[124.6300, 107.6350, 92.9575]
+n=3: futures=[133.1000, 114.9500, 99.2750, 85.7375] forward=[133.1000, 114.9500, 99.2750, 85.7375]
+Marking to market: 100 units, initial margin 1000, maintenance 750
+day 1: f=104.5000 balance=850.0000 margin call=0.0000
+day 2: f=101.0000 balance=500.0000 margin call=500.0000
+day 3: f=103.5000 balance=1250.0000 margin call=0.0000
+day 4: f=99.0000 balance=800.0000 margin call=0.0000
+day 5: f=102.0000 balance=1100.0000 margin call=0.0000
+
+== 6.2.2 Hedging with futures: four equally likely scenarios ==
+dS=[-6.0000, -1.0000, 2.0000, 5.0000] df=[-5.0000, -2.0000, 3.0000, 4.0000]
+h*=1.0741; std of spot change: unhedged 4.0620, h=1 1.0000, h* 0.9623
+Perfect hedge: buy at T with a long futures at f(0)=106; spot at T 112 or 95 -> cost [106.0000, 106.0000]
