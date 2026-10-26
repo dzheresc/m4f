@@ -8,6 +8,15 @@ import math
 from dataclasses import dataclass
 
 
+def plain_sum(xs) -> float:
+    """Left-to-right float sum (builtin sum() is compensated since Python 3.12
+    and would not match the C++ and Kotlin loops bit for bit)."""
+    t = 0.0
+    for x in xs:
+        t += x
+    return t
+
+
 @dataclass(frozen=True)
 class Flow:
     t: float
@@ -28,18 +37,18 @@ def coupon_bond(face: float, coupon: float, n: int, dt: float = 1.0) -> Bond:
 
 def price(bond: Bond, y: float, t: float = 0.0) -> float:
     """P(t) = sum over t_i > t of C_i e^(-y(t_i - t))"""
-    return sum(fl.C * math.exp(-y * (fl.t - t)) for fl in bond if fl.t > t)
+    return plain_sum(fl.C * math.exp(-y * (fl.t - t)) for fl in bond if fl.t > t)
 
 
 def duration(bond: Bond, y: float, t: float = 0.0) -> float:
     """D = sum (t_i - t) C_i e^(-y(t_i - t)) / P; dP/dy = -D P"""
-    return sum((fl.t - t) * fl.C * math.exp(-y * (fl.t - t)) for fl in bond if fl.t > t) / price(bond, y, t)
+    return plain_sum((fl.t - t) * fl.C * math.exp(-y * (fl.t - t)) for fl in bond if fl.t > t) / price(bond, y, t)
 
 
 def investment_value(bond: Bond, y: float, t: float) -> float:
     """10.1.1: value at time t of one bond bought at 0, if the yield is y from
     then on: coupons received before t are reinvested at y, the rest is priced at y."""
-    return sum(fl.C * math.exp(y * (t - fl.t)) if fl.t <= t else fl.C * math.exp(-y * (fl.t - t)) for fl in bond)
+    return plain_sum(fl.C * math.exp(y * (t - fl.t)) if fl.t <= t else fl.C * math.exp(-y * (fl.t - t)) for fl in bond)
 
 
 def log_return(bond: Bond, y0: float, y: float, t: float) -> float:

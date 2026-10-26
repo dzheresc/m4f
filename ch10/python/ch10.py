@@ -7,7 +7,7 @@ import math
 
 from bonds import (coupon_bond, duration, dynamic_hedge, immunise, immunising_weights, investment_value, log_return,
                    price, value, zero_coupon)
-from term_structure import (coupon_bond_price, forward_rate, forward_rates, implied_price, money_market_account,
+from term_structure import (plain_sum, coupon_bond_price, forward_rate, forward_rates, implied_price, money_market_account,
                             prices_from_forward_rates, yield_rate, yield_to_maturity)
 
 
@@ -81,7 +81,7 @@ def report() -> str:
         line(f"T={f(T)}: B={f(Bv)} y(0,T)={f(yield_rate(Bv, T))} f(0,T-0.5,T)={f(fr)}")
     line(f"Prices rebuilt from the forward rates: {fl(prices_from_forward_rates(Ts, fw))}")
     line(f"f(0,1,3)={f(forward_rate(Bs[1], 1.0, Bs[5], 3.0))} = average of the half-year forwards "
-         f"{f(sum(fw[2:6]) / 4)}")
+         f"{f(plain_sum(fw[2:6]) / 4)}")
     line("Implied B(1,T) = B(0,T)/B(0,1): " + " ".join(f"T={f(T)}:{f(implied_price(Bs[1], Bv))}" for T, Bv in zip(Ts[2:], Bs[2:])))
     line(f"FRA: borrow 1000 at t=1, repay at t=2 at f(0,1,2)={f(forward_rate(Bs[1], 1.0, Bs[3], 2.0))}: "
          f"buy 1000 one-year bonds (cost {f(1000.0 * Bs[1])}), sell {f(1000.0 * Bs[1] / Bs[3])} two-year bonds; "
@@ -96,7 +96,7 @@ def report() -> str:
     As = money_market_account(Ts, Bs)
     for T, a, Bv in zip(Ts, As, Bs):
         line(f"A({f(T)})={f(a)} = 1/B(0,T)={f(1 / Bv)}")
-    line(f"Short rates realised = forward rates: {fl(fw)}; A(3)=exp(sum f dt)={f(math.exp(sum(fr * 0.5 for fr in fw)))}")
+    line(f"Short rates realised = forward rates: {fl(fw)}; A(3)=exp(sum f dt)={f(math.exp(plain_sum(fr * 0.5 for fr in fw)))}")
     line(f"1 unit at t=0 in the 3-year bond: {f(1 / Bs[5])} at t=3, same as the money market account {f(As[5])}")
     return "\n".join(out) + "\n"
 

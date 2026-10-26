@@ -8,6 +8,15 @@ from __future__ import annotations
 import math
 
 
+def plain_sum(xs) -> float:
+    """Left-to-right float sum (builtin sum() is compensated since Python 3.12
+    and would not match the C++ and Kotlin loops bit for bit)."""
+    t = 0.0
+    for x in xs:
+        t += x
+    return t
+
+
 def yield_rate(B: float, T: float) -> float:
     """y(0,T) = -ln B(0,T) / T"""
     return -math.log(B) / T
@@ -58,7 +67,7 @@ def yield_to_maturity(P: float, flows_t: list[float], flows_C: list[float]) -> f
     lo, hi = -1.0, 1.0
     for _ in range(200):
         mid = (lo + hi) / 2
-        if sum(C * math.exp(-mid * t) for t, C in zip(flows_t, flows_C)) > P:
+        if plain_sum(C * math.exp(-mid * t) for t, C in zip(flows_t, flows_C)) > P:
             lo = mid
         else:
             hi = mid
