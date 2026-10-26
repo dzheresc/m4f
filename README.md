@@ -12,5 +12,6 @@ Code for Capinski & Zastawniak, *Mathematics for Finance*. Each chapter is imple
 | [ch06](ch06/) | Forward and futures contracts: pricing, value, margin, hedging |
 | [ch07](ch07/) | Options: payoffs, put-call parity, bounds, time value |
 | [ch08](ch08/) | Option pricing: binomial trees, CRR formula, American options, Black-Scholes |
+| [ch10](ch10/) | Variable interest rates: duration, immunisation, dynamic hedging, forward rates, money market |
 
 Run `./run_all.sh` inside a chapter to build, test and diff all three languages.
