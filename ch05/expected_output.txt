@@ -1,0 +1,37 @@
+Chapter 5: Portfolio Management (illustrative numbers, book formulas)
+
+== 5.1 Risk: scenarios with p = {0.2, 0.5, 0.3} ==
+K1=[-0.1000, 0.1000, 0.2000]: mu=0.0900 sigma=0.1044
+K2=[0.2000, 0.0500, -0.0500]: mu=0.0500 sigma=0.0866
+Cov(K1,K2)=-0.0090 rho=-0.9954
+Half and half: sigma from scenarios=0.0100, from formula=0.0100
+
+== 5.2.1 Two securities: mu1=0.08 sigma1=0.10, mu2=0.12 sigma2=0.20 ==
+rho=-1.0000: min variance w1=0.6667 mu=0.0933 sigma=0.0000; w1=0.4: sigma=0.0800
+rho=-0.5000: min variance w1=0.7143 mu=0.0914 sigma=0.0655; w1=0.4: sigma=0.1058
+rho=0.0000: min variance w1=0.8000 mu=0.0880 sigma=0.0894; w1=0.4: sigma=0.1265
+rho=0.5000: min variance w1=1.0000 mu=0.0800 sigma=0.1000; w1=0.4: sigma=0.1442
+rho=1.0000: min variance w1=2.0000 mu=0.0400 sigma=0.0000; w1=0.4: sigma=0.1600
+
+== 5.3.1 Several securities: m=(0.10, 0.15, 0.20) sigma=(0.15, 0.25, 0.30) ==
+rho12=0.3 rho13=0.1 rho23=0.4
+w=[0.4000, 0.3000, 0.3000]: mu=0.1450 sigma=0.1628
+
+== 5.3.2 Efficient frontier ==
+Minimum variance portfolio w=[0.7627, 0.0983, 0.1390] mu=0.1188 sigma=0.1374
+mu_V=0.1500: w=[0.4056, 0.1889, 0.4056] sigma=0.1689
+mu_V=0.1800: w=[0.0620, 0.2760, 0.6620] sigma=0.2367
+mu_V=0.2100: w=[-0.2816, 0.3632, 0.9184] sigma=0.3183
+
+== 5.4.1 Capital market line: R=0.05 ==
+Market portfolio w_M=[0.4456, 0.1787, 0.3757] mu_M=0.1465 sigma_M=0.1628 slope=0.5929
+On the CML at sigma=0.15: mu=0.1389
+
+== 5.4.2 Beta factor: beta_V = Cov(K_V, K_M) / sigma_M^2 ==
+beta=[0.5181, 1.0362, 1.5543]
+w=[0.4000, 0.3000, 0.3000]: beta_V=0.9844 sum w_i beta_i=0.9844
+
+== 5.4.3 Security market line: mu_V = R + (mu_M - R) beta_V ==
+security 1: beta=0.5181 SML mu=0.1000 actual mu=0.1000
+security 2: beta=1.0362 SML mu=0.1500 actual mu=0.1500
+security 3: beta=1.5543 SML mu=0.2000 actual mu=0.2000
