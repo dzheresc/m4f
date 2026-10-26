@@ -1,0 +1,53 @@
+Chapter 11: Stochastic Interest Rates (illustrative numbers, book formulas)
+
+== 11.1 Binomial tree model: r(n,k) = 0.05 + 0.01 k - 0.01 (n-k), tau=1, N=4 ==
+n=0: r=[0.0500] B(n,n+1)=[0.9512]
+n=1: r=[0.0600, 0.0400] B(n,n+1)=[0.9418, 0.9608]
+n=2: r=[0.0700, 0.0500, 0.0300] B(n,n+1)=[0.9324, 0.9512, 0.9704]
+n=3: r=[0.0800, 0.0600, 0.0400, 0.0200] B(n,n+1)=[0.9231, 0.9418, 0.9608, 0.9802]
+n=4: r=[0.0900, 0.0700, 0.0500, 0.0300, 0.0100] B(n,n+1)=[0.9139, 0.9324, 0.9512, 0.9704, 0.9900]
+Money market account along uuuu: A=[1.0000, 1.0513, 1.1163, 1.1972, 1.2969]
+Money market account along udud: A=[1.0000, 1.0513, 1.1163, 1.1735, 1.2461]
+Money market account along dddd: A=[1.0000, 1.0513, 1.0942, 1.1275, 1.1503]
+
+== 11.2 Arbitrage pricing of bonds with p*=0.5 ==
+B(0,N) for N=1..4: [0.9512, 0.9049, 0.8609, 0.8193]
+Term structure y(0,N): [0.0500, 0.0500, 0.0499, 0.0498]
+B(n,4) at n=0: [0.8193]
+B(n,4) at n=1: [0.8355, 0.8871]
+B(n,4) at n=2: [0.8694, 0.9049, 0.9418]
+B(n,4) at n=3: [0.9231, 0.9418, 0.9608, 0.9802]
+B(n,4) at n=4: [1.0000, 1.0000, 1.0000, 1.0000, 1.0000]
+Term structure after one step: up node y(1,N)=[0.0600, 0.0600, 0.0599] down node y(1,N)=[0.0400, 0.0400, 0.0399]
+Risk-neutral one-step return E*[B(1,N)]/B(0,N) for N=2,3,4: [1.0513, 1.0513, 1.0513] = e^(r(0) tau) = 1.0513
+
+== 11.2.1 Risk-neutral probabilities implied by bond prices ==
+from B(n,4): n=0:[0.5000] n=1:[0.5000, 0.5000] n=2:[0.5000, 0.5000, 0.5000]
+from B(n,3): n=0:[0.5000] n=1:[0.5000, 0.5000]
+from B(n,2): n=0:[0.5000]
+Bonds priced with p*=0.6: B(0,4)=0.8095 (vs 0.8193); implied p* at (0,0): 0.6000
+A two-year bond quoted at 0.8949 instead of 0.9049 implies p*=1.0526 at (0,0), inconsistent with the other bonds: arbitrage
+
+== 11.3.1 Options on the 4-year bond, expiry n=2, p*=0.5 ==
+European call X=0.9000: payoff at n=2 [0.0000, 0.0049, 0.0418], price 0.0118
+European put X=0.9000: payoff at n=2 [0.0306, 0.0000, 0.0000], price 0.0069
+American put X=0.9000: price 0.0807 = immediate exercise X - B(0,4) = 0.0807; values at n=1 [0.0645, 0.0129] = exercise values [0.0645, 0.0129]
+American call X=0.85 on the 4-year bond, expiry n=3: 0.0875 vs European 0.0875
+Call on the 2-year bond expiring at n=1, X=0.95: 0.0051
+
+== 11.3.2 Swaps: fixed K against floating L(n,k) = e^(r tau) - 1, 4 annual payments ==
+n=0: L=[0.0513]
+n=1: L=[0.0618, 0.0408]
+n=2: L=[0.0725, 0.0513, 0.0305]
+n=3: L=[0.0833, 0.0618, 0.0408, 0.0202]
+Swap rate K = (1 - B(0,4)) / sum B(0,n) = 0.0511
+Payer swap value at K: 0.0000; at n=1: [0.0284, -0.0287]
+Payer swap at K=0.0400: 0.0392
+Payer swap at K=0.0500: 0.0039
+Payer swap at K=0.0600: -0.0315
+
+== 11.3.3 Caps and floors on the same floating rate ==
+K=0.0400: cap=0.0435 floor=0.0043 cap-floor=0.0392 = payer swap 0.0392
+K=0.0511: cap=0.0159 floor=0.0159 cap-floor=0.0000 = payer swap 0.0000
+K=0.0600: cap=0.0062 floor=0.0377 cap-floor=-0.0315 = payer swap -0.0315
+Caplets at K=0.05 by fixing date n=0..3: [0.0012, 0.0053, 0.0052, 0.0068], sum 0.0185 = cap 0.0185
