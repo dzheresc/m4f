@@ -1,0 +1,41 @@
+Chapter 7: Options: General Properties (illustrative numbers, book formulas)
+
+== 7.1 Definitions: X=100, premiums C=10 P=5, r=0.05 T=1 ==
+S(T)=80.0000: call payoff=0.0000 profit long=-10.5127 short=10.5127; put payoff=20.0000 profit long=14.7436 short=-14.7436
+S(T)=100.0000: call payoff=0.0000 profit long=-10.5127 short=10.5127; put payoff=0.0000 profit long=-5.2564 short=5.2564
+S(T)=120.0000: call payoff=20.0000 profit long=9.4873 short=-9.4873; put payoff=0.0000 profit long=-5.2564 short=5.2564
+
+== 7.2 Put-call parity: C - P = S(0) - X e^(-rT), S(0)=100 X=100 r=0.05 T=1 ==
+S(0) - X e^(-rT) = 4.8771
+C=10.4500 P=5.5700: gap=0.0029 arbitrage profit at T=0.0031
+C=12.0000 P=5.0000: gap=2.1229 arbitrage profit at T=2.2318
+C=9.0000 P=6.0000: gap=-1.8771 arbitrage profit at T=1.9733
+Dividend 2 at t=0.5 (PV 1.9506): C - P should be 2.9264
+
+== 7.3.1 Bounds on European options: S(0)=100 X=100 r=0.05 T=1 ==
+call in [4.8771, 100.0000], put in [0.0000, 95.1229]
+Quoted call 3.50: violation 1.3771; quoted put 96.00: violation 0.8771; model call 10.4406: violation 0.0000
+
+== 7.3.2 American calls on a non-dividend paying stock (CRR, sigma=0.2, N=200) ==
+S(0)=90.0000: C_E=5.0944 C_A=5.0944 exercise now=0.0000
+S(0)=100.0000: C_E=10.4406 C_A=10.4406 exercise now=0.0000
+S(0)=120.0000: C_E=26.1732 C_A=26.1732 exercise now=20.0000
+
+== 7.3.3 American options: S(0) - X <= C_A - P_A <= S(0) - X e^(-rT) ==
+S(0)=90.0000: P_E=10.2173 P_A=11.4945 C_A-P_A=-6.4001 in [-10.0000, -5.1229]
+S(0)=100.0000: P_E=5.5635 P_A=6.0864 C_A-P_A=4.3542 in [0.0000, 4.8771]
+S(0)=120.0000: P_E=1.2962 P_A=1.3708 C_A-P_A=24.8024 in [20.0000, 24.8771]
+
+== 7.4.1 European options: dependence on X and S(0) ==
+X=[90.0000, 100.0000, 110.0000]: C=[16.7032, 10.4406, 6.0464] P=[2.3138, 5.5635, 10.6816]
+C(90)-C(100)=6.2626 <= e^(-rT) x 10 = 9.5123; butterfly gap=-0.9342 (<= 0)
+Quotes C=15, 10, 2: butterfly gap=1.5000 -> write 2 x C(100), buy C(90) and C(110)
+S(0)=[90.0000, 100.0000, 110.0000]: C=[5.0944, 10.4406, 17.6691]
+
+== 7.4.2 American options: dependence on T ==
+T=[0.2500, 0.5000, 1.0000, 2.0000]: P_A=[3.4772, 4.6525, 6.0864, 7.7179]
+
+== 7.5 Time value of options: price - intrinsic value, X=100 T=1 ==
+S(0)=80.0000: call 1.8543 time value 1.8543; put 16.9773 time value -3.0227
+S(0)=100.0000: call 10.4406 time value 10.4406; put 5.5635 time value 5.5635
+S(0)=120.0000: call 26.1732 time value 6.1732; put 1.2962 time value 1.2962
