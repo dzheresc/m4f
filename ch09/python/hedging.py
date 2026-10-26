@@ -11,6 +11,15 @@ from dataclasses import dataclass
 from black_scholes import bs_greeks, bs_price
 
 
+def plain_sum(xs) -> float:
+    """Left-to-right float sum (builtin sum() is compensated since Python 3.12
+    and would not match the C++ and Kotlin loops bit for bit)."""
+    t = 0.0
+    for x in xs:
+        t += x
+    return t
+
+
 @dataclass(frozen=True)
 class Position:
     qty: float
@@ -36,14 +45,14 @@ def portfolio_value(h: Hedge, S: float, t: float, r: float, sigma: float) -> flo
 
 
 def total_greek(options: list[Position], S: float, r: float, sigma: float, name: str) -> float:
-    return sum(p.qty * getattr(bs_greeks(S, p.X, r, sigma, p.T, p.is_call), name) for p in options)
+    return plain_sum(p.qty * getattr(bs_greeks(S, p.X, r, sigma, p.T, p.is_call), name) for p in options)
 
 
 def delta_hedge(options: list[Position], S: float, r: float, sigma: float) -> Hedge:
     """9.1.1: make the position delta neutral with shares; the money market
     absorbs the premium received and the cost of the shares (value 0 at t=0)."""
     shares = -total_greek(options, S, r, sigma, "delta")
-    premium = -sum(p.qty * bs_price(S, p.X, r, sigma, p.T, p.is_call) for p in options)
+    premium = -plain_sum(p.qty * bs_price(S, p.X, r, sigma, p.T, p.is_call) for p in options)
     return Hedge(list(options), shares, premium - shares * S)
 
 
@@ -55,7 +64,7 @@ def delta_greek_hedge(options: list[Position], extra: Position, S: float, r: flo
     qty = -total_greek(options, S, r, sigma, name) / g_extra
     all_opts = list(options) + [Position(qty, extra.X, extra.T, extra.is_call)]
     shares = -total_greek(all_opts, S, r, sigma, "delta")
-    premium = -sum(p.qty * bs_price(S, p.X, r, sigma, p.T, p.is_call) for p in all_opts)
+    premium = -plain_sum(p.qty * bs_price(S, p.X, r, sigma, p.T, p.is_call) for p in all_opts)
     return Hedge(all_opts, shares, premium - shares * S)
 
 
