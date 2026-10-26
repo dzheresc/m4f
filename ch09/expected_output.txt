@@ -1,0 +1,101 @@
+Chapter 9: Financial Engineering (illustrative numbers, book formulas)
+
+== 9.1.1 Delta hedging: written 1000 calls X=100 T=0.5, S=100 r=0.05 sigma=0.2 ==
+Call price C=6.8887, delta=0.5977
+Premium received 6888.7286; buy 597.7345 shares, money market -52884.7183 (negative = borrow)
+Value of the position right after a jump in S (t=0): naked writer vs delta hedged
+S=90.0000: naked 4539.3003 hedged -1438.0444
+S=95.0000: naked 2634.1879 hedged -354.4844
+S=99.0000: naked 583.9344 hedged -13.8001
+S=100.0000: naked 0.0000 hedged 0.0000
+S=101.0000: naked -611.2840 hedged -13.5495
+S=105.0000: naked -3312.5291 hedged -323.8567
+S=110.0000: naked -7186.6555 hedged -1209.3108
+Same jumps one week later (t=1/52), no rebalancing:
+  S=90.0000:-1377.9437 S=95.0000:-264.7928 S=99.0000:90.3316 S=100.0000:106.2819 S=101.0000:94.3086 S=105.0000:-214.9475 S=110.0000:-1108.1105
+
+== 9.1.1 Dynamic delta hedging along a weekly path, rebalanced each week ==
+t=0.0000 S=100.0000: shares=597.7345 money=-52884.7183 value=0.0000
+t=0.0192 S=103.0000: shares=675.7449 money=-60970.6704 value=-10.0175
+t=0.0385 S=101.0000: shares=622.1037 money=-55611.5635 value=40.6375
+t=0.0577 S=98.0000: shares=532.2337 money=-46857.7946 value=15.4321
+t=0.0769 S=102.0000: shares=647.9825 money=-58709.2525 value=-99.7418
+t=0.0962 S=104.0000: shares=702.2934 money=-64414.0656 value=-41.0531
+
+== 9.1.2 Greek parameters: S=100 X=100 r=0.05 sigma=0.2 T=0.5 ==
+call: price=6.8887 delta=0.5977 gamma=0.0274 theta=-8.1160 vega=27.3587 rho=26.4424
+put: price=4.4197 delta=-0.4023 gamma=0.0274 theta=-3.2394 vega=27.3587 rho=-22.3231
+Position Greeks of the written calls: delta=-597.7345 gamma=-27.3587 theta=8115.9676 vega=-27358.6586 rho=-26442.3592
+
+== 9.1.2 Delta-gamma and delta-vega hedging with calls X=110 T=0.5 ==
+delta: shares=597.7345 calls X=110: 0.0000 money=-52884.7183 gamma=-27.3587 vega=-27358.6586
+delta-gamma: shares=242.0294 calls X=110: 1062.1636 money=-20401.3566 gamma=0.0000 vega=0.0000
+delta-vega: shares=242.0294 calls X=110: 1062.1636 money=-20401.3566 gamma=-0.0000 vega=0.0000
+Value after an immediate jump in S:
+S=90.0000: delta -1438.0444 delta-gamma -210.4770 delta-vega -210.4770
+S=95.0000: delta -354.4844 delta-gamma -27.2528 delta-vega -27.2528
+S=99.0000: delta -13.8001 delta-gamma -0.2181 delta-vega -0.2181
+S=100.0000: delta 0.0000 delta-gamma 0.0000 delta-vega -0.0000
+S=101.0000: delta -13.5495 delta-gamma 0.2162 delta-vega 0.2162
+S=105.0000: delta -323.8567 delta-gamma 26.1337 delta-vega 26.1337
+S=110.0000: delta -1209.3108 delta-gamma 195.1426 delta-vega 195.1426
+Value after an immediate change in sigma (S unchanged):
+sigma=0.1500: delta 1361.6135 delta-gamma 47.6538 delta-vega 47.6538
+sigma=0.2000: delta 0.0000 delta-gamma 0.0000 delta-vega -0.0000
+sigma=0.2500: delta -1371.2866 delta-gamma 30.0376 delta-vega 30.0376
+sigma=0.3000: delta -2746.1481 delta-gamma 101.1115 delta-vega 101.1115
+
+== 9.1.3 Applications: after one week S=97 and sigma=0.22 ==
+delta: -564.4474
+delta-gamma: -59.2564
+delta-vega: -59.2564
+Theta: value change over one week with S and sigma unchanged
+delta: 106.2819  (theta x dt = 156.0763)
+delta-gamma: 0.7220  (theta x dt = 19.6167)
+delta-vega: 0.7220  (theta x dt = 19.6167)
+
+== 9.2.1 Value at Risk: 1 share, S(0)=100, m=0.08 sigma=0.3 T=0.5 (lognormal) ==
+E S(T)=106.4494
+confidence 0.9000: z=-1.2816 S quantile=79.3059 VaR=20.6941
+confidence 0.9500: z=-1.6449 S quantile=73.4235 VaR=26.5765
+confidence 0.9900: z=-2.3263 S quantile=63.5405 VaR=36.4595
+Hedging with puts (priced with r=0.05 sigma=0.3), VaR at 95%:
+X=85.0000: put price=1.9906 initial value=101.9906 VaR=16.9906 E V(T)=107.9395 expected return=0.0583
+X=90.0000: put price=3.2639 initial value=103.2639 VaR=13.2639 E V(T)=108.9755 expected return=0.0553
+X=95.0000: put price=4.9824 initial value=104.9824 VaR=9.9824 E V(T)=110.4225 expected return=0.0518
+X=100.0000: put price=7.1659 initial value=107.1659 VaR=7.1659 E V(T)=112.3183 expected return=0.0481
+Half hedged X=95: VaR=18.2794 expected return=0.0580
+
+== 9.2.2 Case study: 10000 shares to be sold in 6 months, VaR(95%) target 100000 ==
+Unhedged: VaR=265765.0059 expected return=0.0645
+puts X=80.0000: cost=11139.3886 VaR=211139.3886 expected return=0.0607
+puts X=85.0000: cost=19905.9930 VaR=169905.9930 expected return=0.0583
+puts X=90.0000: cost=32638.5820 VaR=132638.5820 expected return=0.0553
+puts X=95.0000: cost=49823.5819 VaR=99823.5819 expected return=0.0518
+puts X=100.0000: cost=71658.6783 VaR=71658.6783 expected return=0.0481
+puts X=105.0000: cost=98059.5411 VaR=48059.5411 expected return=0.0443
+Cheapest hedge meeting the target: put X=95
+
+== 9.3.1 Speculating: capital 10000, S(0)=100 m=0.10 sigma=0.25 T=0.5, r=0.05 ==
+C(X=100)=8.2600 C(X=110)=4.2258
+stock: shares=100.0000 options=[]
+calls X=100: shares=0.0000 options=[1210.6515]
+calls X=110: shares=0.0000 options=[2366.4257]
+half stock, half calls X=100: shares=50.0000 options=[605.3258]
+Terminal value by scenario S(T)=[80.0000, 90.0000, 100.0000, 110.0000, 120.0000, 130.0000]:
+stock: [8000.0000, 9000.0000, 10000.0000, 11000.0000, 12000.0000, 13000.0000]
+calls X=100: [0.0000, 0.0000, 0.0000, 12106.5153, 24213.0305, 36319.5458]
+calls X=110: [0.0000, 0.0000, 0.0000, 0.0000, 23664.2569, 47328.5137]
+half stock, half calls X=100: [4000.0000, 4500.0000, 5000.0000, 11553.2576, 18106.5153, 24659.7729]
+Expected return, probability of loss, breakeven S(T), VaR at 95%:
+stock: E ret=0.0678 P(loss)=0.3886 breakeven=100.0000 VaR=2139.7901
+calls X=100: E ret=0.3520 P(loss)=0.5660 breakeven=108.2600 VaR=10000.0000
+calls X=110: E ret=0.4512 P(loss)=0.6807 breakeven=114.2258 VaR=10000.0000
+half stock, half calls X=100: E ret=0.2099 P(loss)=0.5529 breakeven=107.6298 VaR=6069.8951
+
+== 9.3.2 Case study: expecting a rise to about 115 in 3 months (m=0.4 sigma=0.25 T=0.25) ==
+E S(T)=111.3839 P(S(T)>115)=0.3752
+stock: options=[] E ret=0.1138 P(loss)=0.2119 VaR=1002.2154 value at S(T)=115: 11500.0000
+calls X=100: options=[1786.2246] E ret=1.2865 P(loss)=0.3578 VaR=10000.0000 value at S(T)=115: 26793.3684
+bull spread 100/115: options=[2208.6800, -2208.6800] E ret=0.9403 P(loss)=0.3279 VaR=10000.0000 value at S(T)=115: 33130.1994
+If instead the stock stays flat (S(T)=100): stock=10000.0000 calls X=100=0.0000 bull spread 100/115=0.0000
