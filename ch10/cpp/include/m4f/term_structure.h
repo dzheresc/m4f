@@ -5,6 +5,7 @@
 #ifndef M4F_CH10_TERM_STRUCTURE_H_
 #define M4F_CH10_TERM_STRUCTURE_H_
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <vector>
@@ -56,42 +57,71 @@ inline double ImpliedPrice(double b_t, double b_maturity) {
   return b_maturity / b_t;
 }
 
-// Price of a coupon bond = sum C_i B(0,t_i), with t_i on the grid.
+// Price of a coupon bond = sum C_i B(0,t_i), with t_i on the grid (matched
+// exactly). The maturities are ascending, so sorted flow times are matched in
+// one merge pass; a flow time earlier than the one before restarts the scan.
 inline double CouponBondPrice(const std::vector<double>& flow_times,
                               const std::vector<double>& flow_amounts,
                               const std::vector<double>& maturities,
                               const std::vector<double>& prices) {
   double total = 0.0;
+  std::size_t j = 0;
   for (std::size_t i = 0; i < flow_times.size(); ++i) {
-    for (std::size_t j = 0; j < maturities.size(); ++j) {
-      if (maturities[j] == flow_times[i]) {
-        total += flow_amounts[i] * prices[j];
-        break;
-      }
+    if (i > 0 && flow_times[i] < flow_times[i - 1]) j = 0;
+    while (j < maturities.size() && maturities[j] < flow_times[i]) ++j;
+    if (j < maturities.size() && maturities[j] == flow_times[i]) {
+      total += flow_amounts[i] * prices[j];
     }
   }
   return total;
 }
 
-// The single continuous yield y with sum C_i e^(-y t_i) = P (bisection).
+// The single continuous yield y in [-1, 1] with sum C_i e^(-y t_i) = P.
+// Newton's method (the derivative is minus the duration sum, from the same
+// loop) inside a bisection bracket: a step that leaves the bracket is
+// replaced by its midpoint, so it converges wherever bisection would.
 inline double YieldToMaturity(double price,
                               const std::vector<double>& flow_times,
                               const std::vector<double>& flow_amounts) {
   double lo = -1.0;
   double hi = 1.0;
+  double total = 0.0;
+  double weighted = 0.0;
+  for (std::size_t i = 0; i < flow_times.size(); ++i) {
+    total += flow_amounts[i];
+    weighted += flow_amounts[i] * flow_times[i];
+  }
+  // Starting guess: the yield if all flows were paid at their mean time.
+  double y = total > 0 && price > 0 && weighted > 0
+                 ? std::log(total / price) * total / weighted
+                 : 0.0;
+  if (!(y > lo && y < hi)) y = 0.0;
   for (int it = 0; it < 200; ++it) {
-    const double mid = (lo + hi) / 2;
     double s = 0.0;
+    double ds = 0.0;  // -d s / dy.
     for (std::size_t i = 0; i < flow_times.size(); ++i) {
-      s += flow_amounts[i] * std::exp(-mid * flow_times[i]);
+      const double term = flow_amounts[i] * std::exp(-y * flow_times[i]);
+      s += term;
+      ds += flow_times[i] * term;
     }
     if (s > price) {
-      lo = mid;
+      lo = y;
     } else {
-      hi = mid;
+      hi = y;
     }
+    if (ds > 0) {
+      const double step = (s - price) / ds;
+      // Converged: y is the root to within rounding, and may sit on a
+      // bracket end, so test this before the bracket.
+      if (std::abs(step) <= 1e-15 * std::max(1.0, std::abs(y))) {
+        return y + step;
+      }
+      y += step;
+    }
+    if (!(y > lo && y < hi)) y = (lo + hi) / 2;
+    if (hi - lo <= 1e-15) return y;
   }
-  return (lo + hi) / 2;
+  return y;
 }
 
 // Section 10.2.2: A(T_n) from rolling over one-period bonds at the (implied,
