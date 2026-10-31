@@ -31,7 +31,7 @@ replaced, bit-identical wherever the arithmetic allows.
 | 3 | ExpectedPrice/1000 | 6,094,545 | 209,782 | 29x | 2.7 ms → 16 µs | O(n) log-space sum (overflow fix) | #36 |
 | 4 | ExpectedDiscountedValue/16 | 853,216,750 | 16,021,212 | 53x | 88 → 2.8 ms | depth-first walk sharing prefixes | #37 |
 | 5 | MinVariancePortfolio/200 | 66,458,312 | 6,977,037 | 9.5x | 3.8 → 0.64 ms | Cholesky solve, row-wise VecMat | #38 |
-| 6 | — | | | | | no change needed | |
+| 6 | FuturesTree/1000 | 13,564,115 | — | — | 1.1 ms | measured, no change needed (see below) | #28 |
 | 7 | CrrAmericanPut/2000 | 602,449,553 | 19,723,093 | 31x | 50 → 1.4 ms | power table instead of pow per node | #39 |
 | 8 | CrrTreePriceAmerican/2000 | 651,578,709 | 23,665,621 | 28x | 56 → 1.3 ms | rolling row, power tables | #40 |
 | 9 | NormInv | 27,273 | 253 | 108x | 5.3 µs → 31 ns | Acklam + one Halley step | #41 |
@@ -68,6 +68,29 @@ Three benchmarks got slower, each on purpose:
 - Ch 8 `BinomialSum` and `CrrCall` at N = 1000: 0.76x and 0.82x. They now use
   log-space weights, which stay correct past N ≈ 1030.
 
+## Chapter 6: measured, no change needed
+
+Chapter 6 has the same benchmarks as the other chapters (#28). Nothing in it
+was worth changing. Its hottest benchmark is `FuturesTree/1000`, at 13.6M Ir
+and 1.1 ms. That cost is O(N²) because the function returns every node of
+the tree, at about 27 instructions per node. Everything else is a few
+nanoseconds to tens of microseconds.
+
+| Benchmark | Ir | Time |
+|---|---:|---:|
+| FuturesTree/1000 | 13,564,115 | 1.1 ms |
+| FuturesTree/100 | 304,482 | 26 µs |
+| HedgedStd/10000 | 362,453 | 28 µs |
+| MinVarianceHedgeRatio/10000 | 195,047 | 13 µs |
+| MarginAccount/2520 | 106,309 | 17 µs |
+| ForwardPriceDividends/100 | 7,285 | 449 ns |
+| ForwardPrice | 70 | 4.2 ns |
+| PrintReport | 138,780 | 10 µs |
+
+Possible small wins were left alone because the gain is small at these sizes:
+`reserve` in `FuturesTree` and `MarginAccount`, and fusing the loops in
+`HedgedStd`.
+
 ## Correctness bug fixed
 
 The weights C(N, k) p^k (1−p)^(N−k) were computed directly. Past N ≈ 1030,
@@ -79,7 +102,6 @@ in Kotlin), with large-N tests in each.
 
 ## Left alone
 
-- **Chapter 6:** nothing was hot.
 - **Chapter 11 lattice functions:** their cost is one `exp` per node for the
   discount factor. Removing it would put a precomputed discount lattice in the
   public API.
