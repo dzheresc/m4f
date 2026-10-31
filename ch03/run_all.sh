@@ -13,7 +13,7 @@ cpp/build/ch03 > out_cpp.txt
 echo "Kotlin tests: OK"
 (cd kotlin && ./gradlew -q --console=plain run) > out_kotlin.txt
 
-(cd python && python3 -m unittest -q test_ch03 2>/dev/null)
+(cd python && python3 -m unittest -q ch03_test 2>/dev/null)
 echo "Python tests: OK"
 python3 python/ch03.py > out_python.txt
 
