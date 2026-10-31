@@ -6,27 +6,37 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 class Ch02Test {
-    private fun near(a: Double, b: Double, eps: Double = 1e-9) = assertTrue(abs(a - b) < eps, "$a != $b")
+    private fun assertNear(expected: Double, actual: Double, eps: Double = 1e-9) =
+        assertTrue(abs(expected - actual) < eps, "expected $expected, got $actual")
 
-    @Test fun reportValues() {
-        near(annuityPresentValue(1000.0, 0.10, 10), 6144.567105, 1e-6)
-        near(loanInstallment(100000.0, 0.005, 300), 644.301401, 1e-6)
-        near(continuousFromPeriodic(0.12, 12), 0.119404, 1e-6)
-        near(moneyMarketRollover(1.0, listOf(0.5, 0.5)), 4.0)
+    @Test
+    fun reportValues() {
+        assertNear(6144.567105, annuityPresentValue(1000.0, 0.10, 10), 1e-6)
+        assertNear(644.301401, loanInstallment(100000.0, 0.005, 300), 1e-6)
+        assertNear(0.119404, continuousFromPeriodic(0.12, 12), 1e-6)
+        assertNear(4.0, moneyMarketRollover(1.0, listOf(0.5, 0.5)))
     }
 
-    @Test fun libraryIdentities() {
-        near(simplePresentValue(simpleValue(100.0, 0.1, 0.5), 0.1, 0.5), 100.0)
-        near(simpleRate(100.0, simpleValue(100.0, 0.08, 2.0), 2.0), 0.08)
-        near(effectiveRate(0.1, 1), 0.1)
-        near(periodicFromContinuous(continuousFromPeriodic(0.1, 12), 12), 0.1)
-        near(periodicFromPeriodic(periodicFromPeriodic(0.1, 4, 12), 12, 4), 0.1)
-        near(continuousEffectiveRate(continuousFromPeriodic(0.1, 1)), 0.1)
-        near(periodicValue(100.0, 0.1, 1000000, 1.0), continuousValue(100.0, 0.1, 1.0), 1e-4)
-        near(annuityPresentValue(loanInstallment(1000.0, 0.1, 5), 0.1, 5), 1000.0)
-        near(annuityFutureValue(1.0, 0.1, 5), annuityFactor(0.1, 5) * 1.1.pow(5))
-        for (m in listOf(1, 2, 12, null)) near(impliedRate(zeroCouponPrice(0.08, 2.5, m), 2.5, m), 0.08)
-        near(yieldToMaturity(couponBondPrice(100.0, 10.0, 3, 0.12), 100.0, 10.0, 3), 0.12, 1e-8)
-        near(couponBondPrice(100.0, 10.0, 3, 0.10), 100.0)
+    @Test
+    fun interestIdentities() {
+        assertNear(100.0, simplePresentValue(simpleValue(100.0, 0.1, 0.5), 0.1, 0.5))
+        assertNear(0.08, simpleRate(100.0, simpleValue(100.0, 0.08, 2.0), 2.0))
+        assertNear(0.1, effectiveRate(0.1, 1))
+        assertNear(0.1, periodicFromContinuous(continuousFromPeriodic(0.1, 12), 12))
+        assertNear(0.1, periodicFromPeriodic(periodicFromPeriodic(0.1, 4, 12), 12, 4))
+        assertNear(0.1, continuousEffectiveRate(continuousFromPeriodic(0.1, 1)))
+        assertNear(continuousValue(100.0, 0.1, 1.0), periodicValue(100.0, 0.1, 1000000, 1.0), 1e-4)
+        assertNear(1000.0, annuityPresentValue(loanInstallment(1000.0, 0.1, 5), 0.1, 5))
+        assertNear(annuityFactor(0.1, 5) * 1.1.pow(5), annuityFutureValue(1.0, 0.1, 5))
+    }
+
+    @Test
+    fun bondIdentities() {
+        for (m in listOf(1, 2, 12, null)) {
+            assertNear(0.08, impliedRate(zeroCouponPrice(0.08, 2.5, m), 2.5, m))
+        }
+        val price = couponBondPrice(100.0, 10.0, 3, 0.12)
+        assertNear(0.12, yieldToMaturity(price, 100.0, 10.0, 3), 1e-8)
+        assertNear(100.0, couponBondPrice(100.0, 10.0, 3, 0.10))
     }
 }
