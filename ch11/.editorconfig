@@ -2,6 +2,7 @@
 #   C++     https://google.github.io/styleguide/cppguide.html
 #   Python  https://google.github.io/styleguide/pyguide.html
 #   Kotlin  https://developer.android.com/kotlin/style-guide (Android style)
+#   Rust    rustfmt defaults (Google has no Rust guide; see STYLE.md)
 root = true
 
 [*]
@@ -25,6 +26,11 @@ indent_style = space
 indent_size = 4
 max_line_length = 100
 ktlint_code_style = android_studio
+
+[*.rs]
+indent_style = space
+indent_size = 4
+max_line_length = 100
 
 [*.sh]
 indent_style = space
