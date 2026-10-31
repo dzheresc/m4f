@@ -60,7 +60,8 @@ inline double CouponBondPriceSlope(double face, double coupon, int n,
 // price. Newton's method, kept inside a shrinking bisection bracket (the price
 // is strictly decreasing in y), so it falls back to bisection whenever a
 // Newton step would leave the bracket and returns the nearer end when the
-// price is out of range.
+// price is out of range. Stops once the bracket or the Newton step is
+// narrower than `tol`. `n` is the number of coupon periods.
 inline double YieldToMaturity(double price, double face, double coupon, int n,
                               double lo = -0.99, double hi = 10.0,
                               double tol = 1e-12) {

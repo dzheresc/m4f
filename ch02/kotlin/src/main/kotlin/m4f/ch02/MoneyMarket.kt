@@ -34,7 +34,8 @@ fun couponBondPrice(face: Double, coupon: Double, n: Int, y: Double): Double {
 
 /**
  * Per-period yield y with couponBondPrice(face, coupon, n, y) = [price], found by bisection on
- * [[lo0], [hi0]] (the price is strictly decreasing in y).
+ * [[lo0], [hi0]] (the price is strictly decreasing in y). Stops once the bracket is narrower
+ * than [tol]. [n] is the number of coupon periods.
  */
 fun yieldToMaturity(
     price: Double,

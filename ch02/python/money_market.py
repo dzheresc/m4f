@@ -68,7 +68,9 @@ def yield_to_maturity(
 ) -> float:
     """Per-period yield y with coupon_bond_price(face, coupon, n, y) == price.
 
-    Uses bisection on [lo, hi]; the price is strictly decreasing in y.
+    Uses bisection on [lo, hi]; the price is strictly decreasing in y. Stops
+    once the bracket is narrower than `tol`. `n` is the number of coupon
+    periods.
     """
     for _ in range(200):
         mid = (lo + hi) / 2
