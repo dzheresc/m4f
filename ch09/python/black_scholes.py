@@ -46,16 +46,76 @@ def norm_pdf(x: float) -> float:
     return math.exp(-x * x / 2) / 2.506628274631000502
 
 
+# Acklam's rational approximation to the normal quantile: central region
+# numerator (_A) and denominator (_B), tails (_C, _D).
+_A = (
+    -3.969683028665376e01,
+    2.209460984245205e02,
+    -2.759285104469687e02,
+    1.383577518672690e02,
+    -3.066479806614716e01,
+    2.506628277459239e00,
+)
+_B = (
+    -5.447609879822406e01,
+    1.615858368580409e02,
+    -1.556989798598866e02,
+    6.680131188771972e01,
+    -1.328068155288572e01,
+)
+_C = (
+    -7.784894002430293e-03,
+    -3.223964580411365e-01,
+    -2.400758277161838e00,
+    -2.549732539343734e00,
+    4.374664141464968e00,
+    2.938163982698783e00,
+)
+_D = (
+    7.784695709041462e-03,
+    3.224671290700398e-01,
+    2.445134137142996e00,
+    3.754408661907416e00,
+)
+_P_LOW = 0.02425
+
+
 def norm_inv(p: float) -> float:
-    """Quantile of the standard normal, by bisection on norm_cdf (0 < p < 1)."""
-    lo, hi = -40.0, 40.0
-    for _ in range(200):
-        mid = (lo + hi) / 2
-        if norm_cdf(mid) < p:
-            lo = mid
-        else:
-            hi = mid
-    return (lo + hi) / 2
+    """Inverse of norm_cdf.
+
+    Acklam's rational approximation (relative error below 1.2e-9) followed by
+    one Halley step against norm_cdf itself, which brings it to full double
+    precision, about the cost of two norm_cdf calls. p outside (0, 1) returns
+    -40 or 40.
+    """
+    if not p > 0:
+        return -40.0
+    if not p < 1:
+        return 40.0
+    a, b, c, d = _A, _B, _C, _D
+    if p < _P_LOW or p > 1 - _P_LOW:
+        # Tails: q = sqrt(-2 ln(min(p, 1-p))).
+        q = math.sqrt(-2 * math.log(p if p < _P_LOW else 1 - p))
+        x = (
+            ((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]
+        ) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
+        if p > 1 - _P_LOW:
+            x = -x
+    else:
+        q = p - 0.5
+        r = q * q
+        x = (
+            (
+                ((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r
+                + a[5]
+            )
+            * q
+            / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
+        )
+    # Halley step on norm_cdf(x) - p.
+    e = norm_cdf(x) - p
+    u = e * 2.506628274631000502 * math.exp(x * x / 2)
+    return x - u / (1 + x * u / 2)
 
 
 def d1_d2(
@@ -127,18 +187,20 @@ def bs_greeks(
     disc = strike * math.exp(-r * maturity)
     gamma = n1 / (s * sigma * math.sqrt(maturity))
     vega = s * n1 * math.sqrt(maturity)
+    theta0 = -s * n1 * sigma / (2 * math.sqrt(maturity))
+    # Each norm_cdf is evaluated once.
     if is_call:
-        price = s * norm_cdf(d1) - disc * norm_cdf(d2)
-        delta = norm_cdf(d1)
-        theta = -s * n1 * sigma / (
-            2 * math.sqrt(maturity)
-        ) - r * disc * norm_cdf(d2)
-        rho = maturity * disc * norm_cdf(d2)
+        nd1 = norm_cdf(d1)
+        nd2 = norm_cdf(d2)
+        price = s * nd1 - disc * nd2
+        delta = nd1
+        theta = theta0 - r * disc * nd2
+        rho = maturity * disc * nd2
     else:
-        price = disc * norm_cdf(-d2) - s * norm_cdf(-d1)
+        nmd1 = norm_cdf(-d1)
+        nmd2 = norm_cdf(-d2)
+        price = disc * nmd2 - s * nmd1
         delta = norm_cdf(d1) - 1
-        theta = -s * n1 * sigma / (
-            2 * math.sqrt(maturity)
-        ) + r * disc * norm_cdf(-d2)
-        rho = -maturity * disc * norm_cdf(-d2)
+        theta = theta0 + r * disc * nmd2
+        rho = -maturity * disc * nmd2
     return Greeks(price, delta, gamma, theta, vega, rho)

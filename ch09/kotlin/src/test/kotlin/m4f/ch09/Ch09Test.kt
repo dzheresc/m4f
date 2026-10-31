@@ -27,6 +27,38 @@ class Ch09Test {
         assertNear(1 / sqrt(2 * PI), normPdf(0.0), 1e-12)
     }
 
+    /**
+     * normInv against the bisection it replaced, across the center, both tails and the region
+     * boundaries of the rational approximation. Near p = 1 the inverse is only defined to within
+     * one ulp of p divided by the density, so the tolerance includes that term.
+     */
+    @Test
+    fun normInvAgainstBisection() {
+        fun bisect(p: Double): Double {
+            var lo = -40.0
+            var hi = 40.0
+            repeat(200) {
+                val mid = (lo + hi) / 2
+                if (normCdf(mid) < p) lo = mid else hi = mid
+            }
+            return (lo + hi) / 2
+        }
+        val probs = listOf(
+            1e-100, 1e-20, 1e-10, 1e-4, 0.001, 0.01, 0.02425, 0.0243, 0.1, 0.3, 0.5, 0.7, 0.95,
+            0.975, 0.97575, 0.99, 0.999, 0.999999,
+        )
+        for (p in probs) {
+            val x = normInv(p)
+            val ref = bisect(p)
+            assertTrue(abs(x - ref) <= 1e-13 + 4e-16 / normPdf(ref), "p = $p")
+            assertTrue(abs(normCdf(x) - p) <= 1e-14 * max(p, 1e-2), "p = $p")
+        }
+        assertEquals(-40.0, normInv(0.0))
+        assertEquals(40.0, normInv(1.0))
+        // Beyond normCdf's range (|x| > 37) the result stays finite and ordered.
+        assertTrue(normInv(1e-300) < -37 && normInv(1e-300) > -40)
+    }
+
     @Test
     fun greeksByFiniteDifferences() {
         val h = 1e-4

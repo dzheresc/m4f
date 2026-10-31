@@ -24,6 +24,40 @@ class LibraryTest(unittest.TestCase):
             black_scholes.norm_pdf(0.0), 1 / math.sqrt(2 * math.pi)
         )
 
+    def test_norm_inv_against_bisection(self) -> None:
+        """norm_inv against the bisection it replaced.
+
+        Across the center, both tails and the region boundaries of the rational
+        approximation. Near p = 1 the inverse is only defined to within one ulp
+        of p divided by the density, so the tolerance includes that term.
+        """
+
+        def bisect(p: float) -> float:
+            lo, hi = -40.0, 40.0
+            for _ in range(200):
+                mid = (lo + hi) / 2
+                if black_scholes.norm_cdf(mid) < p:
+                    lo = mid
+                else:
+                    hi = mid
+            return (lo + hi) / 2
+
+        for p in (1e-100, 1e-20, 1e-10, 1e-4, 0.001, 0.01, 0.02425, 0.0243,
+                  0.1, 0.3, 0.5, 0.7, 0.95, 0.975, 0.97575, 0.99, 0.999,
+                  0.999999):  # fmt: skip
+            x = black_scholes.norm_inv(p)
+            ref = bisect(p)
+            self.assertLessEqual(
+                abs(x - ref), 1e-13 + 4e-16 / black_scholes.norm_pdf(ref)
+            )
+            self.assertLessEqual(
+                abs(black_scholes.norm_cdf(x) - p), 1e-14 * max(p, 1e-2)
+            )
+        self.assertEqual(black_scholes.norm_inv(0.0), -40.0)
+        self.assertEqual(black_scholes.norm_inv(1.0), 40.0)
+        # Beyond norm_cdf's range (|x| > 37) the result stays finite, ordered.
+        self.assertTrue(-40 < black_scholes.norm_inv(1e-300) < -37)
+
     def test_greeks_by_finite_differences(self) -> None:
         h = 1e-4
         for is_call in (True, False):
