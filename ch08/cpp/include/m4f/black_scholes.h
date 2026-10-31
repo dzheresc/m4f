@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <utility>
+#include <vector>
 
 #include "m4f/binomial_pricing.h"
 
@@ -87,11 +88,23 @@ inline double CrrTreePrice(double s, double strike, double r, double sigma,
   const double u = std::exp(sigma * std::sqrt(tau)) - 1;
   const double d = std::exp(-sigma * std::sqrt(tau)) - 1;
   const double r_step = std::exp(r * tau) - 1;
-  const Payoff payoff =
-      is_call
-          ? Payoff([strike](double x) { return std::max(x - strike, 0.0); })
-          : Payoff([strike](double x) { return std::max(strike - x, 0.0); });
-  return OptionTree(s, u, d, r_step, num_steps, payoff, american)[0][0];
+  // The same backward induction as OptionTree, keeping one row instead of
+  // the whole tree and calling the payoff directly.
+  const double q = RiskNeutralProb(u, d, r_step);
+  const StockPrices price(s, u, d, num_steps);
+  const auto payoff = [strike, is_call](double x) {
+    return is_call ? std::max(x - strike, 0.0) : std::max(strike - x, 0.0);
+  };
+  std::vector<double> values(num_steps + 1);
+  for (int k = 0; k <= num_steps; ++k) values[k] = payoff(price(num_steps, k));
+  for (int n = num_steps - 1; n >= 0; --n) {
+    for (int k = 0; k <= n; ++k) {
+      double v = (q * values[k + 1] + (1 - q) * values[k]) / (1 + r_step);
+      if (american) v = std::max(v, payoff(price(n, k)));
+      values[k] = v;
+    }
+  }
+  return values[0];
 }
 
 }  // namespace m4f::ch08

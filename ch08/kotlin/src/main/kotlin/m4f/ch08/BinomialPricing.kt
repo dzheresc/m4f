@@ -5,6 +5,9 @@
 // price.
 package m4f.ch08
 
+import kotlin.math.exp
+import kotlin.math.ln
+import kotlin.math.ln1p
 import kotlin.math.max
 import kotlin.math.pow
 
@@ -90,14 +93,31 @@ fun replicatingPosition(
     return Pair(x, y)
 }
 
+/**
+ * C(N,k) p^k (1-p)^(N-k) for k = 0..N, built in log space by updating log C(N, k) from k to
+ * k+1: C(N, k) on its own overflows a Double near N = 1030 even when the weight is tiny.
+ */
+fun binomialWeights(p: Double, numSteps: Int): DoubleArray {
+    if (p <= 0 || p >= 1) {
+        val hit = if (p <= 0) 0 else numSteps
+        return DoubleArray(numSteps + 1) { if (it == hit) 1.0 else 0.0 }
+    }
+    val logP = ln(p)
+    val logQ = ln1p(-p)
+    var logC = 0.0
+    val weights = DoubleArray(numSteps + 1)
+    for (k in 0..numSteps) {
+        weights[k] = exp(logC + k * logP + (numSteps - k) * logQ)
+        if (k < numSteps) logC += ln((numSteps - k).toDouble()) - ln((k + 1).toDouble())
+    }
+    return weights
+}
+
 /** P(at least m up moves out of N) = sum_{k >= m} C(N,k) p^k (1-p)^(N-k). */
 fun binomialSum(p: Double, numSteps: Int, m: Int): Double {
+    val weights = binomialWeights(p, numSteps)
     var total = 0.0
-    var c = 1.0
-    for (k in 0..numSteps) {
-        if (k >= m) total += c * p.pow(k) * (1 - p).pow(numSteps - k)
-        c = c * (numSteps - k) / (k + 1)
-    }
+    for (k in m.coerceAtLeast(0)..numSteps) total += weights[k]
     return total
 }
 
@@ -110,14 +130,9 @@ fun europeanPriceSum(
     numSteps: Int,
     payoff: Payoff,
 ): Double {
-    val q = riskNeutralProb(u, d, r)
+    val weights = binomialWeights(riskNeutralProb(u, d, r), numSteps)
     var total = 0.0
-    var c = 1.0
-    for (k in 0..numSteps) {
-        total += c * q.pow(k) * (1 - q).pow(numSteps - k) *
-            payoff(stockPrice(s0, u, d, numSteps, k))
-        c = c * (numSteps - k) / (k + 1)
-    }
+    for (k in 0..numSteps) total += weights[k] * payoff(stockPrice(s0, u, d, numSteps, k))
     return total * (1 + r).pow(-numSteps)
 }
 

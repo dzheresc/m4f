@@ -55,3 +55,36 @@ trees):
 - The payoff is a `std::function`, so each leaf is an indirect call. This is
   small next to the `pow` calls.
 - `PrintReport` spends its 20 ms almost entirely in American trees.
+
+## After: log-space binomial weights, power tables, rolling CRR price
+
+- **Overflow fixed in all three languages.** `BinomialSum` and
+  `EuropeanPriceSum` (so also `CrrCall`) build the weights
+  `C(N,k) p^k (1-p)^(N-k)` in log space. New tests at N = 2000 check that the
+  weights sum to 1, that the CRR formula equals the sum, and that both are
+  within 0.01 of Black-Scholes.
+- `OptionTree` and `EarlyExerciseNodes` (C++) read node prices from two
+  tables of powers (`StockPrices`, the same arithmetic as `StockPrice`, so the
+  values are bit-identical) instead of two `std::pow` calls per node.
+- `CrrTreePrice` (C++) keeps one row instead of the whole tree and calls the
+  payoff directly instead of through `std::function`.
+
+The report is byte-identical in C++, Kotlin and Python. Times at N = 2000 are
+from a 5-repetition rerun (the coefficient of variation was 5-9%).
+
+| Benchmark | Time before | Time after | Ir before | Ir after | Ir ratio |
+|---|---:|---:|---:|---:|---:|
+| `BM_OptionTreeAmerican/100` | 128 us | 27 us | 1,836,006 | 292,635 | 6.3x |
+| `BM_OptionTreeAmerican/2000` | 55 ms | 7.7 ms | 659,362,841 | 95,187,021 | 6.9x |
+| `BM_OptionTreeEuropean/2000` | 4.4 ms | 3.3 ms | 50,429,636 | 44,152,837 | 1.1x |
+| `BM_EarlyExerciseNodes/2000` | 115 ms | 23 ms | 1,292,579,279 | 176,995,173 | 7.3x |
+| `BM_CrrTreePriceEuropean/2000` | 4.2 ms | 1.3 ms | 50,649,123 | 10,650,616 | 4.8x |
+| `BM_CrrTreePriceAmerican/2000` | 56 ms | 1.3 ms | 651,578,709 | 23,665,621 | 28x |
+| `BM_EuropeanPriceSum/1000` | 52 us | 42 us | 603,989 | 514,981 | 1.2x |
+| `BM_BinomialSum/1000` | 13 us | 15 us | 156,733 | 206,963 | 0.76x |
+| `BM_CrrCall/1000` | 44 us | 43 us | 459,997 | 560,105 | 0.82x |
+| `BM_PrintReport` | 20 ms | 1.4 ms | 245,971,630 | 15,475,242 | 16x |
+
+`BinomialSum` and `CrrCall` cost about 20% more (an `exp` and two `log`s per
+term instead of two `pow`s), and in exchange give correct results past
+N = 1030 instead of `nan`.

@@ -4,6 +4,7 @@ import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.pow
+import kotlin.math.sqrt
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -53,6 +54,15 @@ class Ch08Test {
             }
         }
         assertNear(1.0, binomialSum(0.3, 6, 0))
+        // Large N: C(2000, 1000) alone overflows a Double.
+        val big = 2000
+        val u = exp(0.2 * sqrt(1.0 / big)) - 1
+        val d = exp(-0.2 * sqrt(1.0 / big)) - 1
+        val r = exp(0.05 / big) - 1
+        assertNear(1.0, binomialSum(0.5, big, 0))
+        val crr = crrCall(100.0, 100.0, u, d, r, big).price
+        assertNear(crr, europeanPriceSum(100.0, u, d, r, big, call(100.0)))
+        assertNear(bsCall(100.0, 100.0, 0.05, 0.2, 1.0), crr, 1e-2)
     }
 
     @Test

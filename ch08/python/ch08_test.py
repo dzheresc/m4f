@@ -67,6 +67,22 @@ class LibraryTest(unittest.TestCase):
                     tree - put_price, 100 - strike * 1.1**-num_steps
                 )
         self.assertAlmostEqual(binomial_pricing.binomial_sum(0.3, 6, 0), 1)
+        # Large N: C(2000, 1000) alone overflows a float.
+        big = 2000
+        u = math.exp(0.2 * math.sqrt(1 / big)) - 1
+        d = math.exp(-0.2 * math.sqrt(1 / big)) - 1
+        r = math.exp(0.05 / big) - 1
+        self.assertAlmostEqual(binomial_pricing.binomial_sum(0.5, big, 0), 1)
+        crr, _ = binomial_pricing.crr_call(100, 100, u, d, r, big)
+        self.assertAlmostEqual(
+            crr,
+            binomial_pricing.european_price_sum(
+                100, u, d, r, big, lambda s: max(s - 100, 0.0)
+            ),
+        )
+        self.assertAlmostEqual(
+            crr, black_scholes.bs_call(100, 100, 0.05, 0.2, 1), places=2
+        )
 
     def test_american(self) -> None:
         american = binomial_pricing.option_tree(
