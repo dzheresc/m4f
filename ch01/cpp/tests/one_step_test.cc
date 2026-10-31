@@ -98,6 +98,26 @@ void TestCurrencyArbitrage(Checker& t) {
            "Exercise 1.3");
 }
 
+// C++ only: guards the best-leg table that FxMarket builds for speed.
+// Equal rates go to the first dealer quoted; unquoted pairs and currencies
+// give no leg and an empty cycle.
+void TestFxLegLookup(Checker& t) {
+  const FxMarket fx({{"A", "EUR", "USD", 1.10, 1.20},
+                     {"B", "EUR", "USD", 1.10, 1.15},
+                     {"C", "GBP", "USD", 1.30, 1.40}});
+  const std::optional<FxLeg> sell_eur = fx.BestLeg("EUR", "USD");
+  t.Expect(sell_eur && sell_eur->dealer == "A" && Near(sell_eur->rate, 1.10),
+           "tie goes to first dealer");
+  const std::optional<FxLeg> buy_eur = fx.BestLeg("USD", "EUR");
+  t.Expect(buy_eur && buy_eur->dealer == "B" && Near(buy_eur->rate, 1 / 1.15),
+           "best rate wins");
+  t.Expect(!fx.BestLeg("EUR", "GBP") && !fx.BestLeg("EUR", "JPY") &&
+               !fx.BestLeg("JPY", "EUR"),
+           "missing legs");
+  const FxCycle none = fx.BestCycle("JPY");
+  t.Expect(none.legs.empty() && none.growth == 0.0, "unknown start");
+}
+
 // Example 1.4 / Proposition 1.1.
 void TestExample14(Checker& t) {
   const OneStepMarket m(100, 110, 100, 125, 105, 0.5);
@@ -181,6 +201,7 @@ int RunAllTests() {
   TestArbitrage(t);
   TestBookExamples(t);
   TestCurrencyArbitrage(t);
+  TestFxLegLookup(t);
   TestExample14(t);
   TestRiskAndReturn(t);
   TestForwards(t);

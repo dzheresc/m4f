@@ -1,6 +1,7 @@
 #include "m4f/fx_arbitrage.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
@@ -12,57 +13,81 @@ FxMarket::FxMarket(const std::vector<FxQuote>& quotes) {
     // Sell base to the dealer, or buy base from the dealer.
     legs_.push_back({q.base, q.quote, q.dealer, q.buy});
     legs_.push_back({q.quote, q.base, q.dealer, 1.0 / q.sell});
-    for (const std::string& currency : {q.base, q.quote}) {
-      if (std::find(currencies_.begin(), currencies_.end(), currency) ==
-          currencies_.end()) {
-        currencies_.push_back(currency);
-      }
-    }
+    currencies_.push_back(q.base);
+    currencies_.push_back(q.quote);
   }
   std::sort(currencies_.begin(), currencies_.end());
+  currencies_.erase(std::unique(currencies_.begin(), currencies_.end()),
+                    currencies_.end());
+
+  // Best leg per (from, to); legs are scanned in order and only a strictly
+  // better rate replaces the current best, so the first dealer wins ties.
+  const std::size_t n = currencies_.size();
+  best_leg_.assign(n * n, kNoLeg);
+  for (std::size_t k = 0; k < legs_.size(); ++k) {
+    const std::size_t i =
+        static_cast<std::size_t>(CurrencyIndex(legs_[k].from));
+    const std::size_t j = static_cast<std::size_t>(CurrencyIndex(legs_[k].to));
+    int& best = best_leg_[i * n + j];
+    if (best == kNoLeg ||
+        legs_[k].rate > legs_[static_cast<std::size_t>(best)].rate) {
+      best = static_cast<int>(k);
+    }
+  }
+}
+
+int FxMarket::CurrencyIndex(const std::string& currency) const {
+  const auto it =
+      std::lower_bound(currencies_.begin(), currencies_.end(), currency);
+  if (it == currencies_.end() || *it != currency) return -1;
+  return static_cast<int>(it - currencies_.begin());
 }
 
 std::optional<FxLeg> FxMarket::BestLeg(const std::string& from,
                                        const std::string& to) const {
-  std::optional<FxLeg> best;
-  for (const FxLeg& leg : legs_) {
-    if (leg.from == from && leg.to == to && (!best || leg.rate > best->rate)) {
-      best = leg;
-    }
-  }
-  return best;
+  const int i = CurrencyIndex(from);
+  const int j = CurrencyIndex(to);
+  if (i < 0 || j < 0) return std::nullopt;
+  const int k = BestLegIndex(i, j);
+  if (k == kNoLeg) return std::nullopt;
+  return legs_[static_cast<std::size_t>(k)];
 }
 
 FxCycle FxMarket::BestCycle(const std::string& start) const {
   FxCycle best{{}, 0.0};
-  std::vector<FxLeg> path;
-  std::vector<std::string> visited{start};
-  Search(start, start, 1.0, visited, path, best);
+  const int s = CurrencyIndex(start);
+  if (s < 0) return best;
+  SearchState state{s, std::vector<char>(currencies_.size(), 0), {}, {}, 0.0};
+  state.visited[static_cast<std::size_t>(s)] = 1;
+  Search(s, 1.0, state);
+  best.growth = state.best_growth;
+  for (int k : state.best_path) {
+    best.legs.push_back(legs_[static_cast<std::size_t>(k)]);
+  }
   return best;
 }
 
-void FxMarket::Search(const std::string& start, const std::string& at,
-                      double growth, std::vector<std::string>& visited,
-                      std::vector<FxLeg>& path, FxCycle& best) const {
-  for (const std::string& next : currencies_) {
-    const std::optional<FxLeg> leg = BestLeg(at, next);
-    if (!leg) continue;
-    const bool closes = next == start;
-    if (!closes &&
-        std::find(visited.begin(), visited.end(), next) != visited.end()) {
-      continue;
-    }
-    if (closes && path.empty()) continue;
-    path.push_back(*leg);
-    const double new_growth = growth * leg->rate;
+void FxMarket::Search(int at, double growth, SearchState& state) const {
+  const int n = static_cast<int>(currencies_.size());
+  for (int next = 0; next < n; ++next) {
+    const int k = BestLegIndex(at, next);
+    if (k == kNoLeg) continue;
+    const bool closes = next == state.start;
+    if (!closes && state.visited[static_cast<std::size_t>(next)]) continue;
+    if (closes && state.path.empty()) continue;
+    state.path.push_back(k);
+    const double new_growth = growth * legs_[static_cast<std::size_t>(k)].rate;
     if (closes) {
-      if (new_growth > best.growth) best = {path, new_growth};
+      if (new_growth > state.best_growth) {
+        state.best_growth = new_growth;
+        state.best_path = state.path;
+      }
     } else {
-      visited.push_back(next);
-      Search(start, next, new_growth, visited, path, best);
-      visited.pop_back();
+      state.visited[static_cast<std::size_t>(next)] = 1;
+      Search(next, new_growth, state);
+      state.visited[static_cast<std::size_t>(next)] = 0;
     }
-    path.pop_back();
+    state.path.pop_back();
   }
 }
 

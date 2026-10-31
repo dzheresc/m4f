@@ -45,3 +45,20 @@ makes them the better number for comparing two versions of the code.
   comparisons: every step of the search rescans all legs and compares currency
   names as strings.
 - `PrintReport` is dominated by `std::format`; it is not on any hot path.
+
+## After: best-leg table in `FxMarket`
+
+`FxMarket` now sorts the currencies once and builds an n x n table of best-leg
+indices in its constructor; `BestCycle` searches over integer indices and only
+copies `FxLeg`s for the winning cycle. Results are unchanged (checked against
+the old code on 15,000 random markets with ties). The table makes construction
+about twice as expensive, which is paid once per market.
+
+| Benchmark | Time before | Time after | Ir before | Ir after | Ir ratio |
+|---|---:|---:|---:|---:|---:|
+| `BM_FxMarketConstruct` | 421 ns | 784 ns | 5,517 | 10,096 | 0.55x |
+| `BM_BestLeg` | 37.5 ns | 26.7 ns | 571 | 493 | 1.2x |
+| `BM_BestCycleBook` | 959 ns | 236 ns | 13,263 | 3,315 | 4.0x |
+| `BM_BestCycleScaling/4` | 4.3 us | 0.30 us | 58,179 | 5,319 | 10.9x |
+| `BM_BestCycleScaling/6` | 272 us | 4.0 us | 3,272,641 | 68,226 | 48x |
+| `BM_BestCycleScaling/8` | 26 ms | 188 us | 311,063,588 | 3,292,582 | 94x |

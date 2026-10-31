@@ -2,6 +2,7 @@
 #ifndef M4F_CH01_FX_ARBITRAGE_H_
 #define M4F_CH01_FX_ARBITRAGE_H_
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
@@ -45,13 +46,34 @@ class FxMarket {
   FxCycle BestCycle(const std::string& start) const;
 
  private:
-  // Depth-first search from `at`, extending `path` and updating `best`.
-  void Search(const std::string& start, const std::string& at, double growth,
-              std::vector<std::string>& visited, std::vector<FxLeg>& path,
-              FxCycle& best) const;
+  static constexpr int kNoLeg = -1;
+
+  // Index of `currency` in currencies_, or -1 if it is not quoted.
+  int CurrencyIndex(const std::string& currency) const;
+
+  // Index into legs_ of the best leg from currency i to currency j, or kNoLeg.
+  int BestLegIndex(int i, int j) const {
+    return best_leg_[static_cast<std::size_t>(i) * currencies_.size() +
+                     static_cast<std::size_t>(j)];
+  }
+
+  // Search state for BestCycle, by currency and leg index.
+  struct SearchState {
+    int start;
+    std::vector<char> visited;  // Per currency.
+    std::vector<int> path;      // Leg indices.
+    std::vector<int> best_path;
+    double best_growth = 0.0;
+  };
+
+  // Depth-first search from currency `at`, extending state.path.
+  void Search(int at, double growth, SearchState& state) const;
 
   std::vector<FxLeg> legs_;
   std::vector<std::string> currencies_;  // Sorted, no duplicates.
+  // n x n table, row = from, column = to, built once by the constructor so
+  // that the search does no string comparisons.
+  std::vector<int> best_leg_;
 };
 
 }  // namespace m4f::ch01
