@@ -49,3 +49,25 @@ which is exact and repeatable.
   many scenarios.
 - `RiskNeutralProbs` and `OneStepValues` are dominated by allocating their
   result vector when there are few scenarios.
+
+## After: depth-first path walk, allocation-free SelfFinancing
+
+`ExpectedDiscountedValue` walks the binomial tree depth first. Paths share
+their prefix, the rule is called once per tree node with the shared `moves`
+vector, and nothing is allocated per path. `SelfFinancing` no longer copies
+`s` and `x` into one-row matrices (it does the same arithmetic in the same
+order), and both strategy functions reserve their outputs.
+`IsArbitrageFree` uses `std::minmax_element`. A new test checks the walk
+against a direct enumeration of all paths under a real-world p for three
+rules, and the report is byte-identical.
+
+| Benchmark | Time before | Time after | Ir before | Ir after | Ir ratio |
+|---|---:|---:|---:|---:|---:|
+| `BM_ExpectedDiscountedValue/4` | 8.1 us | 0.24 us | 101,338 | 3,216 | 32x |
+| `BM_ExpectedDiscountedValue/8` | 191 us | 3.5 us | 2,245,253 | 54,612 | 41x |
+| `BM_ExpectedDiscountedValue/16` | 88 ms | 2.8 ms | 853,216,750 | 16,021,212 | 53x |
+| `BM_SelfFinancing/12` | 295 ns | 117 ns | 3,990 | 1,054 | 3.8x |
+| `BM_SelfFinancing/2520` | 33 us | 21 us | 235,435 | 97,271 | 2.4x |
+| `BM_SelfFinancingMulti/2520` | 60 us | 62 us | 416,991 | 371,953 | 1.1x |
+| `BM_IsArbitrageFree/100` | 141 ns | 108 ns | 1,400 | 761 | 1.8x |
+| `BM_PrintReport` | 22 us | 11 us | 322,747 | 128,953 | 2.5x |

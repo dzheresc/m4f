@@ -125,6 +125,33 @@ void TestMartingale(Checker& t) {
           "E*(V~(N)) = V(0)");
     }
   }
+  // C++ only: the depth-first walk against a direct enumeration of all
+  // paths, under a real-world p, for each rule.
+  constexpr int kSteps = 6;
+  for (const Rule& rule : rules) {
+    double expected = 0.0;
+    for (int mask = 0; mask < (1 << kSteps); ++mask) {
+      std::vector<int> moves;
+      for (int i = 0; i < kSteps; ++i) moves.push_back((mask >> i) & 1);
+      Vec s{100.0};
+      Vec a{1.0};
+      Vec x;
+      double weight = 1.0;
+      for (int n = 1; n <= kSteps; ++n) {
+        s.push_back(s.back() * (moves[n - 1] ? 1.10 : 0.95));
+        a.push_back(a.back() * 1.03);
+        x.push_back(
+            rule(n, std::vector<int>(moves.begin(), moves.begin() + (n - 1))));
+        weight *= moves[n - 1] ? 0.6 : 0.4;
+      }
+      expected +=
+          weight * SelfFinancing(100.0, s, a, x).values[kSteps] / a[kSteps];
+    }
+    t.Expect(Near(ExpectedDiscountedValue(100, 0.10, -0.05, 0.03, kSteps, 100.0,
+                                          rule, 0.6),
+                  expected),
+             "E(V~(N)) matches direct enumeration");
+  }
 }
 
 int RunAllTests() {
