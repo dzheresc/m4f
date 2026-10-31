@@ -27,9 +27,9 @@ using NodeFn = std::function<double(int, int)>;
 inline Lattice RateLattice(double r0, double up, double down, int num_steps) {
   Lattice lattice(num_steps + 1);
   for (int n = 0; n <= num_steps; ++n) {
-    for (int k = 0; k <= n; ++k) {
-      lattice[n].push_back(r0 + k * up + (n - k) * down);
-    }
+    std::vector<double>& row = lattice[n];
+    row.resize(n + 1);
+    for (int k = 0; k <= n; ++k) row[k] = r0 + k * up + (n - k) * down;
   }
   return lattice;
 }
@@ -66,16 +66,18 @@ inline Lattice DiscountBack(const Lattice& rates, const Lattice& probs,
                             const NodeFn& early = nullptr) {
   const int num_steps = static_cast<int>(terminal.size()) - 1;
   Lattice values(num_steps + 1);
-  for (int n = 0; n <= num_steps; ++n) values[n].assign(n + 1, 0.0);
   values[num_steps] = terminal;
   for (int n = num_steps - 1; n >= 0; --n) {
+    const std::vector<double>& next = values[n + 1];
+    std::vector<double>& row = values[n];
+    row.reserve(n + 1);
     for (int k = 0; k <= n; ++k) {
       const double p = probs[n][k];
-      double cont = p * values[n + 1][k + 1] + (1 - p) * values[n + 1][k];
+      double cont = p * next[k + 1] + (1 - p) * next[k];
       if (payment) cont += payment(n, k);
       double v = OneStepPrice(rates[n][k], tau) * cont;
       if (early) v = std::max(v, early(n, k));
-      values[n][k] = v;
+      row.push_back(v);
     }
   }
   return values;
@@ -88,13 +90,31 @@ inline Lattice BondLattice(const Lattice& rates, const Lattice& probs,
                       std::vector<double>(maturity + 1, 1.0));
 }
 
-// B(0,1), ..., B(0,N).
+// B(0,1), ..., B(0,N), by forward induction over the Arrow-Debreu state
+// prices Q(n,k), the time-0 value of 1 paid at node (n,k):
+// B(0,n+1) = sum_k Q(n,k) e^(-r(n,k) tau), and Q(n+1,.) receives
+// Q(n,k) e^(-r(n,k) tau) times p* (up) or 1 - p* (down). One O(N^2) pass
+// instead of a backward induction per maturity; equal to BondLattice()[0][0]
+// up to rounding.
 inline std::vector<double> BondPrices(const Lattice& rates,
                                       const Lattice& probs, double tau,
                                       int num_steps) {
   std::vector<double> out;
-  for (int m = 1; m <= num_steps; ++m) {
-    out.push_back(BondLattice(rates, probs, tau, m)[0][0]);
+  out.reserve(num_steps);
+  std::vector<double> q = {1.0};
+  std::vector<double> next;
+  for (int n = 0; n < num_steps; ++n) {
+    next.assign(n + 2, 0.0);
+    double bond = 0.0;
+    for (int k = 0; k <= n; ++k) {
+      const double d = q[k] * OneStepPrice(rates[n][k], tau);
+      bond += d;
+      const double p = probs[n][k];
+      next[k + 1] += p * d;
+      next[k] += (1 - p) * d;
+    }
+    out.push_back(bond);
+    q.swap(next);
   }
   return out;
 }

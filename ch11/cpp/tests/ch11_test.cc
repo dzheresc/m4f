@@ -153,6 +153,34 @@ void TestSwapsCapsFloors(Checker& t, const Tree& tree) {
   t.Expect(Near(annuity[0][0], sum_bonds), "annuity = sum of bonds");
 }
 
+// The forward-induction BondPrices and the rolling Caplet against the
+// lattice computations they replaced, with node-dependent probabilities.
+void TestAgainstReference(Checker& t) {
+  constexpr int kN = 60;
+  const Lattice rates = RateLattice(0.05, 0.004, -0.003, kN);
+  Lattice probs(kN);
+  for (int n = 0; n < kN; ++n) {
+    for (int k = 0; k <= n; ++k) {
+      probs[n].push_back(0.3 + 0.4 * std::fmod(0.618 * (n * 7 + k * 3), 1.0));
+    }
+  }
+  const std::vector<double> b0 = BondPrices(rates, probs, 0.25, kN);
+  for (int m = 1; m <= kN; ++m) {
+    const double ref = BondLattice(rates, probs, 0.25, m)[0][0];
+    t.Expect(std::abs(b0[m - 1] - ref) <= 1e-14 * ref, "BondPrices vs lattice");
+  }
+  for (int fixing : {0, 1, 7, 59}) {
+    const double ref = PricePayments(
+        rates, probs, 0.25, fixing + 1, [&rates, fixing](int n, int k) {
+          return n == fixing
+                     ? std::max(FloatingRate(rates, 0.25, n, k) - 0.05, 0.0)
+                     : 0.0;
+        })[0][0];
+    t.Expect(Caplet(rates, probs, 0.25, fixing, 0.05) == ref,
+             "Caplet vs PricePayments");
+  }
+}
+
 int RunAllTests() {
   Checker t;
   const Tree tree;
@@ -161,6 +189,7 @@ int RunAllTests() {
   TestImpliedProbs(t, tree);
   TestBondOptions(t, tree);
   TestSwapsCapsFloors(t, tree);
+  TestAgainstReference(t);
   if (t.failures() == 0) std::printf("All C++ tests passed\n");
   return t.failures() == 0 ? 0 : 1;
 }

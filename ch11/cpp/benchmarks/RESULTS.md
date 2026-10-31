@@ -47,3 +47,30 @@ Monthly short-rate lattices with N steps ((N+1)(N+2)/2 nodes):
   call per node. `PayerSwap`, `Cap` and `Floor` cost about 1.5x `BondLattice`,
   mostly from the extra `exp` in `FloatingRate` at each node.
 - The report uses small lattices, so none of this shows in its output.
+
+## After: forward-induction zero curve, rolling caplet, lattice allocation
+
+- `BondPrices` computes every `B(0, m)` in one forward pass over the
+  Arrow-Debreu state prices, O(N^2) instead of one backward induction per
+  maturity, O(N^3). It agrees with `BondLattice(m)[0][0]` to 1e-14 relative
+  (new test with node-dependent probabilities, N = 60).
+- `Caplet` rolls one row back from the fixing level instead of building the
+  whole `PricePayments` lattice through a `std::function`; the result is
+  bit-identical.
+- `RateLattice` sizes each row once instead of growing it with `push_back`,
+  and `DiscountBack` no longer zero-fills rows it overwrites.
+
+| Benchmark | Ir before | Ir after | Ir ratio | Time before | Time after |
+|---|---:|---:|---:|---:|---:|
+| `BM_BondPrices/10` | 41,532 | 7,360 | 5.6x | 3.2 us | 0.55 us |
+| `BM_BondPrices/50` | 2,395,546 | 118,655 | 20x | 171 us | 9.8 us |
+| `BM_BondPrices/200` | 131,899,524 | 1,752,391 | 75x | 10 ms | 155 us |
+| `BM_Caplet/1000` | 61,141,331 | 39,119,175 | 1.6x | 4.6 ms | 2.6 ms |
+| `BM_RateLattice/1000` | 14,897,152 | 7,152,194 | 2.1x | 2.7 ms | 1.7 ms |
+| `BM_BondLattice/1000` | 51,044,891 | 50,756,669 | 1.0x | 4.9 ms | 3.6 ms |
+| `BM_PrintReport` | 425,903 | 404,737 | 1.05x | 33 us | 33 us |
+
+The other lattice functions are dominated by one `exp` per node (the one-step
+discount factor, and in swaps and caps a second one in `FloatingRate`), which
+this change leaves alone: removing it would mean passing a precomputed
+discount lattice through the public API.
