@@ -1,15 +1,15 @@
 """Black-Scholes prices and the Greek parameters (Section 9.1.2).
 
-S stock price, X strike, r continuously compounded rate, sigma volatility,
-T time to expiry. Same norm_cdf as Chapter 8 (Hart 1968 / G. West).
+s stock price, strike X, r continuously compounded rate, sigma volatility,
+maturity T time to expiry. Same norm_cdf as Chapter 8 (Hart 1968 / G. West).
 """
-from __future__ import annotations
 
+import dataclasses
 import math
-from dataclasses import dataclass
 
 
 def norm_cdf(x: float) -> float:
+    """Standard normal CDF to double precision."""
     a = abs(x)
     if a > 37.0:
         c = 0.0
@@ -42,6 +42,7 @@ def norm_cdf(x: float) -> float:
 
 
 def norm_pdf(x: float) -> float:
+    """Standard normal density."""
     return math.exp(-x * x / 2) / 2.506628274631000502
 
 
@@ -57,50 +58,87 @@ def norm_inv(p: float) -> float:
     return (lo + hi) / 2
 
 
-def d1_d2(S: float, X: float, r: float, sigma: float, T: float) -> tuple[float, float]:
-    d1 = (math.log(S / X) + (r + sigma * sigma / 2) * T) / (sigma * math.sqrt(T))
-    return d1, d1 - sigma * math.sqrt(T)
+def d1_d2(
+    s: float, strike: float, r: float, sigma: float, maturity: float
+) -> tuple[float, float]:
+    """(d1, d2) of the Black-Scholes formula."""
+    d1 = (math.log(s / strike) + (r + sigma * sigma / 2) * maturity) / (
+        sigma * math.sqrt(maturity)
+    )
+    return d1, d1 - sigma * math.sqrt(maturity)
 
 
-def payoff(S: float, X: float, is_call: bool) -> float:
-    return max(S - X, 0.0) if is_call else max(X - S, 0.0)
+def payoff(s: float, strike: float, is_call: bool) -> float:
+    """Payoff of a call or put at expiry."""
+    return max(s - strike, 0.0) if is_call else max(strike - s, 0.0)
 
 
-def bs_price(S: float, X: float, r: float, sigma: float, T: float, is_call: bool) -> float:
-    """Black-Scholes price; the payoff when T <= 0."""
-    if T <= 0:
-        return payoff(S, X, is_call)
-    d1, d2 = d1_d2(S, X, r, sigma, T)
+def bs_price(
+    s: float,
+    strike: float,
+    r: float,
+    sigma: float,
+    maturity: float,
+    is_call: bool,
+) -> float:
+    """Black-Scholes price; the payoff when maturity <= 0."""
+    if maturity <= 0:
+        return payoff(s, strike, is_call)
+    d1, d2 = d1_d2(s, strike, r, sigma, maturity)
     if is_call:
-        return S * norm_cdf(d1) - X * math.exp(-r * T) * norm_cdf(d2)
-    return X * math.exp(-r * T) * norm_cdf(-d2) - S * norm_cdf(-d1)
+        return s * norm_cdf(d1) - strike * math.exp(-r * maturity) * norm_cdf(
+            d2
+        )
+    return strike * math.exp(-r * maturity) * norm_cdf(-d2) - s * norm_cdf(-d1)
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Greeks:
+    """Price and Greek parameters of an option.
+
+    Attributes:
+        price: The option price V.
+        delta: dV/dS.
+        gamma: d2V/dS2.
+        theta: dV/dt (per year).
+        vega: dV/dsigma.
+        rho: dV/dr.
+    """
+
     price: float
-    delta: float   # dV/dS
-    gamma: float   # d2V/dS2
-    theta: float   # dV/dt (per year)
-    vega: float    # dV/dsigma
-    rho: float     # dV/dr
+    delta: float
+    gamma: float
+    theta: float
+    vega: float
+    rho: float
 
 
-def bs_greeks(S: float, X: float, r: float, sigma: float, T: float, is_call: bool) -> Greeks:
+def bs_greeks(
+    s: float,
+    strike: float,
+    r: float,
+    sigma: float,
+    maturity: float,
+    is_call: bool,
+) -> Greeks:
     """The Greek parameters of a European option in the Black-Scholes model."""
-    d1, d2 = d1_d2(S, X, r, sigma, T)
+    d1, d2 = d1_d2(s, strike, r, sigma, maturity)
     n1 = norm_pdf(d1)
-    disc = X * math.exp(-r * T)
-    gamma = n1 / (S * sigma * math.sqrt(T))
-    vega = S * n1 * math.sqrt(T)
+    disc = strike * math.exp(-r * maturity)
+    gamma = n1 / (s * sigma * math.sqrt(maturity))
+    vega = s * n1 * math.sqrt(maturity)
     if is_call:
-        price = S * norm_cdf(d1) - disc * norm_cdf(d2)
+        price = s * norm_cdf(d1) - disc * norm_cdf(d2)
         delta = norm_cdf(d1)
-        theta = -S * n1 * sigma / (2 * math.sqrt(T)) - r * disc * norm_cdf(d2)
-        rho = T * disc * norm_cdf(d2)
+        theta = -s * n1 * sigma / (
+            2 * math.sqrt(maturity)
+        ) - r * disc * norm_cdf(d2)
+        rho = maturity * disc * norm_cdf(d2)
     else:
-        price = disc * norm_cdf(-d2) - S * norm_cdf(-d1)
+        price = disc * norm_cdf(-d2) - s * norm_cdf(-d1)
         delta = norm_cdf(d1) - 1
-        theta = -S * n1 * sigma / (2 * math.sqrt(T)) + r * disc * norm_cdf(-d2)
-        rho = -T * disc * norm_cdf(-d2)
+        theta = -s * n1 * sigma / (
+            2 * math.sqrt(maturity)
+        ) + r * disc * norm_cdf(-d2)
+        rho = -maturity * disc * norm_cdf(-d2)
     return Greeks(price, delta, gamma, theta, vega, rho)
