@@ -27,11 +27,14 @@ fun crrPrice(
     val q = (growth - down) / (up - down)
     fun payoff(s: Double) = if (isCall) max(s - strike, 0.0) else max(strike - s, 0.0)
 
-    val values = DoubleArray(numSteps + 1) { k -> payoff(s0 * up.pow(k) * down.pow(numSteps - k)) }
+    // With down = 1/up the stock price at node (n, k) is s0 up^(2k - n), so all node prices come
+    // from one table of 2N+1 powers instead of two pow calls per node.
+    val prices = DoubleArray(2 * numSteps + 1) { s0 * up.pow(it - numSteps) }
+    val values = DoubleArray(numSteps + 1) { k -> payoff(prices[2 * k]) }
     for (n in numSteps - 1 downTo 0) {
         for (k in 0..n) {
             var v = (q * values[k + 1] + (1 - q) * values[k]) / growth
-            if (american) v = max(v, payoff(s0 * up.pow(k) * down.pow(n - k)))
+            if (american) v = max(v, payoff(prices[2 * k - n + numSteps]))
             values[k] = v
         }
     }
