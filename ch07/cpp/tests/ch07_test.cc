@@ -1,7 +1,9 @@
 // Unit tests for chapter 7. A tiny self-contained harness keeps the build free
 // of third-party dependencies; each check mirrors a Kotlin and Python test.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <vector>
 
 #include "m4f/binomial.h"
 #include "m4f/options.h"
@@ -102,6 +104,50 @@ void TestStrike(Checker& t) {
            "butterfly arbitrage");
 }
 
+// C++ only: CrrPrice against a direct backward induction that computes every
+// node's stock price with std::pow, as the book writes it.
+double ReferenceCrr(double s0, double strike, double r, double sigma,
+                    double maturity, int num_steps, bool is_call,
+                    bool american) {
+  const double tau = maturity / num_steps;
+  const double up = std::exp(sigma * std::sqrt(tau));
+  const double down = 1 / up;
+  const double growth = std::exp(r * tau);
+  const double q = (growth - down) / (up - down);
+  const auto payoff = [&](double s) {
+    return is_call ? std::max(s - strike, 0.0) : std::max(strike - s, 0.0);
+  };
+  const auto price = [&](int n, int k) {
+    return s0 * std::pow(up, k) * std::pow(down, n - k);
+  };
+  std::vector<double> v(num_steps + 1);
+  for (int k = 0; k <= num_steps; ++k) v[k] = payoff(price(num_steps, k));
+  for (int n = num_steps - 1; n >= 0; --n) {
+    for (int k = 0; k <= n; ++k) {
+      v[k] = (q * v[k + 1] + (1 - q) * v[k]) / growth;
+      if (american) v[k] = std::max(v[k], payoff(price(n, k)));
+    }
+  }
+  return v[0];
+}
+
+void TestAgainstReference(Checker& t) {
+  for (int n : {1, 7, 200, 1000}) {
+    for (bool is_call : {true, false}) {
+      for (bool american : {false, true}) {
+        for (double strike : {80.0, 100.0, 125.0}) {
+          t.Expect(
+              Near(CrrPrice(100, strike, 0.05, 0.3, 1.5, n, is_call, american),
+                   ReferenceCrr(100, strike, 0.05, 0.3, 1.5, n, is_call,
+                                american),
+                   1e-9),
+              "CrrPrice matches the pow-per-node reference");
+        }
+      }
+    }
+  }
+}
+
 int RunAllTests() {
   Checker t;
   TestPayoffs(t);
@@ -109,6 +155,7 @@ int RunAllTests() {
   TestBounds(t);
   TestAmerican(t);
   TestStrike(t);
+  TestAgainstReference(t);
   if (t.failures() == 0) std::printf("All ch07 tests passed\n");
   return t.failures() == 0 ? 0 : 1;
 }

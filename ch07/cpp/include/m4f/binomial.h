@@ -22,17 +22,22 @@ inline double CrrPrice(double s0, double strike, double r, double sigma,
     return is_call ? std::max(s - strike, 0.0) : std::max(strike - s, 0.0);
   };
 
-  std::vector<double> values;
-  for (int k = 0; k <= num_steps; ++k) {
-    values.push_back(
-        payoff(s0 * std::pow(up, k) * std::pow(down, num_steps - k)));
+  // With down = 1/up the stock price at node (n, k) is s0 up^(2k - n), so all
+  // node prices come from one table of 2N+1 powers instead of two std::pow
+  // calls per node.
+  std::vector<double> prices(2 * num_steps + 1);
+  for (int j = 0; j <= 2 * num_steps; ++j) {
+    prices[j] = s0 * std::pow(up, j - num_steps);
   }
+  const auto price = [&](int n, int k) {
+    return prices[2 * k - n + num_steps];
+  };
+  std::vector<double> values(num_steps + 1);
+  for (int k = 0; k <= num_steps; ++k) values[k] = payoff(price(num_steps, k));
   for (int n = num_steps - 1; n >= 0; --n) {
     for (int k = 0; k <= n; ++k) {
       double v = (q * values[k + 1] + (1 - q) * values[k]) / growth;
-      if (american) {
-        v = std::max(v, payoff(s0 * std::pow(up, k) * std::pow(down, n - k)));
-      }
+      if (american) v = std::max(v, payoff(price(n, k)));
       values[k] = v;
     }
   }
