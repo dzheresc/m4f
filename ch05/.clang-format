@@ -1,0 +1,18 @@
+# Google C++ style: https://google.github.io/styleguide/cppguide.html
+# 2-space indent, 80 columns, include blocks grouped as the guide orders them.
+BasedOnStyle: Google
+Language: Cpp
+Standard: c++20
+DerivePointerAlignment: false
+PointerAlignment: Left
+IncludeBlocks: Regroup
+IncludeCategories:
+  # C system headers, e.g. <stdio.h>
+  - Regex: '^<[a-z_/]+\.h>$'
+    Priority: 1
+  # C++ standard library headers, e.g. <vector>
+  - Regex: '^<[a-z_]+>$'
+    Priority: 2
+  # Project headers
+  - Regex: '^"m4f/'
+    Priority: 3
