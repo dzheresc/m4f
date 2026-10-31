@@ -31,6 +31,8 @@ inline StrategyPath SelfFinancingMulti(double v0, const Mat& s, const Vec& a,
                                        const Mat* dividends = nullptr) {
   const std::size_t num_steps = a.size() - 1;
   StrategyPath path{{}, {v0}};
+  path.y.reserve(num_steps);
+  path.values.reserve(num_steps + 1);
   for (std::size_t n = 1; n <= num_steps; ++n) {
     double stock = 0.0;
     for (std::size_t j = 0; j < s.size(); ++j)
@@ -47,10 +49,20 @@ inline StrategyPath SelfFinancingMulti(double v0, const Mat& s, const Vec& a,
 }
 
 // One stock: y(n) and V(n) of the self-financing strategy with initial value
-// v0 and stock positions x.
+// v0 and stock positions x. Same arithmetic as SelfFinancingMulti with one
+// stock and no dividends, without copying s and x into matrices.
 inline StrategyPath SelfFinancing(double v0, const Vec& s, const Vec& a,
                                   const Vec& x) {
-  return SelfFinancingMulti(v0, Mat{s}, a, Mat{x});
+  const std::size_t num_steps = a.size() - 1;
+  StrategyPath path{{}, {v0}};
+  path.y.reserve(num_steps);
+  path.values.reserve(num_steps + 1);
+  for (std::size_t n = 1; n <= num_steps; ++n) {
+    const double y = (path.values[n - 1] - x[n - 1] * s[n - 1]) / a[n - 1];
+    path.y.push_back(y);
+    path.values.push_back(y * a[n] + x[n - 1] * s[n]);
+  }
+  return path;
 }
 
 // V(N) - V(0) = sum_n x(n) (S(n) - S(n-1)) + y(n) (A(n) - A(n-1)).

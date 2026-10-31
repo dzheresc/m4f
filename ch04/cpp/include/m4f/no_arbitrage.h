@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstddef>
 #include <functional>
+#include <initializer_list>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -21,8 +22,8 @@
 namespace m4f::ch04 {
 
 inline bool IsArbitrageFree(const Vec& returns, double r) {
-  return *std::min_element(returns.begin(), returns.end()) < r &&
-         r < *std::max_element(returns.begin(), returns.end());
+  const auto [lo, hi] = std::minmax_element(returns.begin(), returns.end());
+  return *lo < r && r < *hi;
 }
 
 // (x, y) with V(0) = x S(0) + y A(0) = 0 and V(1) >= 0 in every scenario,
@@ -82,28 +83,38 @@ using Rule = std::function<double(int, const std::vector<int>&)>;
 
 // E(V~(N)) over all 2^N paths, with V~(N) = V(N) / (1+r)^N and A(0) = 1.
 // Under p = p* this equals V(0) for every self-financing rule.
+//
+// The paths are walked depth first, so paths share their common prefix: the
+// rule is called once per tree node (2^N - 1 calls in all, with the moves so
+// far), and nothing is allocated per path.
 inline double ExpectedDiscountedValue(double s0, double u, double d, double r,
                                       int num_steps, double v0,
                                       const Rule& rule, double p) {
   Vec a;
+  a.reserve(num_steps + 1);
   for (int n = 0; n <= num_steps; ++n) a.push_back(std::pow(1 + r, n));
+  std::vector<int> moves;
+  moves.reserve(num_steps);
   double total = 0.0;
-  for (int mask = 0; mask < (1 << num_steps); ++mask) {
-    std::vector<int> moves;
-    for (int i = 0; i < num_steps; ++i) moves.push_back((mask >> i) & 1);
-    Vec s{s0};
-    for (int move : moves) s.push_back(s.back() * (1 + (move ? u : d)));
-    Vec x;
-    for (int n = 1; n <= num_steps; ++n) {
-      x.push_back(
-          rule(n, std::vector<int>(moves.begin(), moves.begin() + (n - 1))));
+  // At time n-1 with stock price s and strategy value v, reached with
+  // probability `weight`; chooses x(n) and branches on the n-th move.
+  const auto walk = [&](const auto& self, int n, double s, double v,
+                        double weight) -> void {
+    if (n > num_steps) {
+      total += weight * v / a[num_steps];
+      return;
     }
-    const Vec values = SelfFinancing(v0, s, a, x).values;
-    int ups = 0;
-    for (int move : moves) ups += move;
-    total += std::pow(p, ups) * std::pow(1 - p, num_steps - ups) *
-             values[num_steps] / a[num_steps];
-  }
+    const double x = rule(n, moves);
+    const double y = (v - x * s) / a[n - 1];
+    for (int move : {0, 1}) {
+      const double s_next = s * (1 + (move ? u : d));
+      moves.push_back(move);
+      self(self, n + 1, s_next, y * a[n] + x * s_next,
+           weight * (move ? p : 1 - p));
+      moves.pop_back();
+    }
+  };
+  walk(walk, 1, s0, v0, 1.0);
   return total;
 }
 
