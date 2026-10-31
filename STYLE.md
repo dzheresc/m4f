@@ -8,6 +8,7 @@ a converted chapter has its own `check_style.sh` and the configs listed below.
 | C++ | [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) | `.clang-format` (`BasedOnStyle: Google`), `cpp/CPPLINT.cfg` |
 | Python | [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html) | `pyproject.toml` (pyink), `python/pylintrc` (Google's own) |
 | Kotlin | [Android Kotlin style guide](https://developer.android.com/kotlin/style-guide) (Google has no general Kotlin guide) | `.editorconfig` (`ktlint_code_style = android_studio`) |
+| Rust | Google has no public Rust guide; see [Rust](#rust) below | `rust/rustfmt.toml` (rustfmt defaults), `[lints]` in `rust/Cargo.toml`, clippy |
 
 `chNN/check_style.sh` runs every tool that is installed; `--fix` reformats.
 
@@ -57,12 +58,37 @@ a converted chapter has its own `check_style.sh` and the configs listed below.
 - Braces on every `if` / `for` whose body does not fit on one line.
 - KDoc (`/** ... */`) for public declarations.
 
+### Rust
+
+Google publishes no Rust style guide. Its own Rust code (Android, Chromium,
+Fuchsia) follows the community standard, so "Google style" here means:
+
+- Formatted by rustfmt with its defaults (the official
+  [Rust style guide](https://doc.rust-lang.org/style-guide/)): 4-space indent,
+  100 columns.
+- `cargo clippy --all-targets -- -D warnings` is clean, with `missing_docs`
+  on and `unsafe_code` forbidden in every crate.
+- [API guidelines](https://rust-lang.github.io/api-guidelines/naming.html)
+  for names: types and enum variants `UpperCamelCase` (`OneStepMarket`,
+  `State::Up`), functions, methods and variables `snake_case`
+  (`risk_neutral_prob`, `s_up`), constants `SCREAMING_SNAKE_CASE`.
+- Doc comments in the spirit of the Google guides: every public item has a
+  `///` summary sentence, modules have a `//!` header, and `# Panics` says
+  which preconditions abort.
+- Preconditions are `assert!`, which panics the way `Check()` aborts in C++.
+  Missing results are `Option`, not sentinels.
+- The crate layout mirrors the C++ one: one module per header, the report in
+  `report.rs`, tests in `tests/chNN_test.rs`, Criterion benchmarks in
+  `benches/`.
+- Report text is written with `write!` into any `fmt::Write`, so the binary
+  prints it and the tests and benchmarks capture it in a `String`.
+
 ## Book notation
 
 The book writes A(0), S^u(1), D^d and so on. Upper-case names break every
 guide, so the code uses the same letters in lower case:
 
-| Book | C++ / Python | Kotlin |
+| Book | C++ / Python / Rust | Kotlin |
 |---|---|---|
 | A(0), A(1), S(0) | `a0`, `a1`, `s0` | `a0`, `a1`, `s0` |
 | S^u(1), S^d(1) | `s_up`, `s_down` | `sUp`, `sDown` |
@@ -71,4 +97,5 @@ guide, so the code uses the same letters in lower case:
 | X (strike) | `strike` | `strike` |
 
 The book's own symbols p, r, u, d, x, y and z stay single letters. The Python
-guide allows this in section 3.16.5, "Mathematical Notation".
+guide allows this in section 3.16.5, "Mathematical Notation". In Rust each
+such name has a doc comment giving the book's symbol.
