@@ -4,6 +4,7 @@
 #   C++     clang-format (.clang-format), cpplint (cpp/CPPLINT.cfg)
 #   Python  pyink (pyproject.toml), pylint (python/pylintrc)
 #   Kotlin  ktlint (.editorconfig, Android Studio style)
+#   Rust    rustfmt (rust/rustfmt.toml), clippy with warnings as errors
 set -uo pipefail
 cd "$(dirname "$0")"
 
@@ -31,6 +32,7 @@ if ((fix)); then
   run clang-format clang-format -i "${cpp_files[@]}"
   run pyink pyink --quiet --config pyproject.toml python
   run ktlint ktlint --format --relative "kotlin/src/**/*.kt"
+  run cargo bash -c 'cd rust && cargo fmt'
   exit "${status}"
 fi
 
@@ -39,4 +41,6 @@ run cpplint bash -c 'cd cpp && cpplint --quiet --recursive include src tests ben
 run pyink pyink --quiet --check --config pyproject.toml python
 run pylint bash -c 'cd python && pylint --rcfile=pylintrc --score=n *.py'
 run ktlint ktlint --relative "kotlin/src/**/*.kt"
+run cargo bash -c 'cd rust && cargo fmt --check &&
+  cargo clippy -q --all-targets -- -D warnings'
 exit "${status}"
