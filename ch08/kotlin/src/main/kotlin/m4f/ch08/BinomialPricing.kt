@@ -2,7 +2,7 @@
 //
 // The tree has S(n) = S(0) (1+u)^k (1+d)^(n-k) after k up moves in n steps, a money market
 // growing at r per step, and p* = (r - d) / (u - d). Payoffs are functions of the final stock
-// price.
+// price. `s0` is the stock price S(0) at the root of the tree.
 package m4f.ch08
 
 import kotlin.math.exp
