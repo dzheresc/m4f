@@ -72,29 +72,69 @@ def coupon_bond_price(
     maturities: list[float],
     prices: list[float],
 ) -> float:
-    """Price of a coupon bond = sum C_i B(0,t_i), with t_i on the grid."""
+    """Price of a coupon bond = sum C_i B(0,t_i), with t_i on the grid.
+
+    Flow times are matched to the grid exactly. The maturities are ascending,
+    so sorted flow times are matched in one merge pass; a flow time earlier
+    than the one before restarts the scan.
+    """
     total = 0.0
+    j = 0
+    previous = -math.inf
     for t, amount in zip(flow_times, flow_amounts):
-        total += amount * prices[maturities.index(t)]
+        if t < previous:
+            j = 0
+        previous = t
+        while j < len(maturities) and maturities[j] < t:
+            j += 1
+        if j < len(maturities) and maturities[j] == t:
+            total += amount * prices[j]
     return total
 
 
 def yield_to_maturity(
     bond_price: float, flow_times: list[float], flow_amounts: list[float]
 ) -> float:
-    """The single continuous yield y with sum C_i e^(-y t_i) = P (bisection)."""
+    """The single continuous yield y in [-1, 1] with sum C_i e^(-y t_i) = P.
+
+    Newton's method (the derivative is minus the duration sum, from the same
+    loop) inside a bisection bracket: a step that leaves the bracket is
+    replaced by its midpoint, so it converges wherever bisection would.
+    """
     lo, hi = -1.0, 1.0
+    total = weighted = 0.0
+    for t, amount in zip(flow_times, flow_amounts):
+        total += amount
+        weighted += amount * t
+    # Starting guess: the yield if all flows were paid at their mean time.
+    y = 0.0
+    if total > 0 and bond_price > 0 and weighted > 0:
+        y = math.log(total / bond_price) * total / weighted
+    if not lo < y < hi:
+        y = 0.0
     for _ in range(200):
-        mid = (lo + hi) / 2
-        value = plain_sum(
-            amount * math.exp(-mid * t)
-            for t, amount in zip(flow_times, flow_amounts)
-        )
+        value = 0.0
+        slope = 0.0  # -d value / dy.
+        for t, amount in zip(flow_times, flow_amounts):
+            term = amount * math.exp(-y * t)
+            value += term
+            slope += t * term
         if value > bond_price:
-            lo = mid
+            lo = y
         else:
-            hi = mid
-    return (lo + hi) / 2
+            hi = y
+        if slope > 0:
+            step = (value - bond_price) / slope
+            # Converged: y is the root to within rounding, and may sit on a
+            # bracket end, so test this before the bracket.
+            if abs(step) <= 1e-15 * max(1.0, abs(y)):
+                return y + step
+            y += step
+        if not lo < y < hi:
+            y = (lo + hi) / 2
+        if hi - lo <= 1e-15:
+            return y
+    return y
 
 
 def money_market_account(

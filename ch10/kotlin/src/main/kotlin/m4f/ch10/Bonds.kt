@@ -36,14 +36,25 @@ fun price(bond: Bond, y: Double, t: Double = 0.0): Double {
     return p
 }
 
-/** D = sum (t_i - t) C_i e^(-y(t_i - t)) / P; dP/dy = -D P. */
-fun duration(bond: Bond, y: Double, t: Double = 0.0): Double {
+/** Price and duration of a bond at yield y and time t, from one pass over the cash flows. */
+data class PriceDuration(val price: Double, val duration: Double)
+
+/** [price] and [duration] of [bond] together, from one pass over the cash flows. */
+fun priceAndDuration(bond: Bond, y: Double, t: Double = 0.0): PriceDuration {
+    var p = 0.0
     var s = 0.0
     for (flow in bond) {
-        if (flow.t > t) s += (flow.t - t) * flow.amount * exp(-y * (flow.t - t))
+        if (flow.t > t) {
+            val e = exp(-y * (flow.t - t))
+            p += flow.amount * e
+            s += (flow.t - t) * flow.amount * e
+        }
     }
-    return s / price(bond, y, t)
+    return PriceDuration(p, s / p)
 }
+
+/** D = sum (t_i - t) C_i e^(-y(t_i - t)) / P; dP/dy = -D P. */
+fun duration(bond: Bond, y: Double, t: Double = 0.0): Double = priceAndDuration(bond, y, t).duration
 
 /**
  * 10.1.1: value at time [t] of one bond bought at 0, if the yield is [y] from then on: coupons
@@ -97,11 +108,23 @@ data class Portfolio(
 fun portfolioValue(p: Portfolio, b1: Bond, b2: Bond, y: Double, t: Double): Double =
     p.q1 * price(b1, y, t) + p.q2 * price(b2, y, t) + p.cash
 
-/** Invest [value] at time [t] in bonds 1 and 2 so that the duration equals horizon - t. */
-fun immunise(value: Double, b1: Bond, b2: Bond, y: Double, t: Double, horizon: Double): Portfolio {
-    val (w1, w2) = immunisingWeights(duration(b1, y, t), duration(b2, y, t), horizon - t)
-    return Portfolio(w1 * value / price(b1, y, t), w2 * value / price(b2, y, t), 0.0)
+/**
+ * Invest [value] in bonds 1 and 2, given their prices and durations [b1] and [b2], so that the
+ * duration equals [targetDuration].
+ */
+fun immunise(
+    value: Double,
+    b1: PriceDuration,
+    b2: PriceDuration,
+    targetDuration: Double,
+): Portfolio {
+    val (w1, w2) = immunisingWeights(b1.duration, b2.duration, targetDuration)
+    return Portfolio(w1 * value / b1.price, w2 * value / b2.price, 0.0)
 }
+
+/** Invest [value] at time [t] in bonds 1 and 2 so that the duration equals horizon - t. */
+fun immunise(value: Double, b1: Bond, b2: Bond, y: Double, t: Double, horizon: Double): Portfolio =
+    immunise(value, priceAndDuration(b1, y, t), priceAndDuration(b2, y, t), horizon - t)
 
 /**
  * One step of a dynamic hedge.
@@ -149,13 +172,16 @@ fun dynamicHedge(
                 }
             }
         }
+        // Both bonds are priced once per step; the values equal price() and duration() bit for
+        // bit.
+        val pd1 = priceAndDuration(b1, y, t)
+        val pd2 = priceAndDuration(b2, y, t)
         p = Portfolio(p.q1, p.q2, cash)
-        val value = portfolioValue(p, b1, b2, y, t)
-        if (rebalance && t < horizon) p = immunise(value, b1, b2, y, t, horizon)
+        val value = p.q1 * pd1.price + p.q2 * pd2.price + p.cash
+        if (rebalance && t < horizon) p = immunise(value, pd1, pd2, horizon - t)
         val d =
             if (t < horizon) {
-                (p.q1 * price(b1, y, t) * duration(b1, y, t) +
-                    p.q2 * price(b2, y, t) * duration(b2, y, t)) / value
+                (p.q1 * pd1.price * pd1.duration + p.q2 * pd2.price * pd2.duration) / value
             } else {
                 0.0
             }
