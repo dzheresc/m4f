@@ -7,13 +7,14 @@ parallel implementations with the same API, and all three print the same output 
 
 ```
 ch02/
-  cpp/      C++20, CMake        include/m4f/{interest,money_market}.hpp (header-only), src/report.cpp, tests/
+  cpp/      C++20, CMake        include/m4f/{interest,money_market}.h (header-only), src/report.cc, tests/
   kotlin/   Kotlin 2.1, Gradle  src/main/kotlin/m4f/ch02/{Interest,MoneyMarket,Report}.kt, src/test/
-  python/   Python 3.10+        interest.py, money_market.py, ch02.py, test_ch02.py
+  python/   Python 3.10+        interest.py, money_market.py, ch02.py, ch02_test.py
   run_all.sh                    build + test + run all three and diff against expected_output.txt
+  check_style.sh                clang-format, cpplint, pyink, pylint, ktlint (whichever are installed)
 ```
 
-| Section | Formula | API (C++ / Kotlin; Python uses snake_case) |
+| Section | Formula | API (Kotlin; C++ uses PascalCase, Python snake_case) |
 |---|---|---|
 | 2.1.1 Simple interest | `V(t) = (1 + t r) P` | `simpleValue`, `simplePresentValue`, `simpleRate` |
 | 2.1.2 Periodic compounding | `V(t) = (1 + r/m)^(tm) P`, `r_e = (1+r/m)^m - 1` | `periodicValue`, `periodicPresentValue`, `effectiveRate` |
@@ -30,5 +31,11 @@ ch02/
 ./run_all.sh
 cmake -S cpp -B cpp/build && cmake --build cpp/build -j && ctest --test-dir cpp/build && cpp/build/ch02
 cd kotlin && gradle test run          # or ./gradlew after `gradle wrapper`
-cd python && python3 -m unittest test_ch02 && python3 ch02.py
+cd python && python3 -m unittest ch02_test && python3 ch02.py
 ```
+
+## Code style
+
+The code follows the Google style guides for C++ and Python and the Android Kotlin style guide;
+see [STYLE.md](../STYLE.md). Run `./check_style.sh` to check, or `./check_style.sh --fix` to
+reformat.
