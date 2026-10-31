@@ -32,11 +32,13 @@ inline double Sum(const Vec& a) {
 
 // v M, for a row vector v.
 inline Vec VecMat(const Vec& v, const Mat& m) {
-  Vec out;
-  for (std::size_t j = 0; j < m[0].size(); ++j) {
-    Vec col;
-    for (std::size_t i = 0; i < m.size(); ++i) col.push_back(m[i][j]);
-    out.push_back(Dot(v, col));
+  // Row by row, so the matrix is read in memory order and nothing is
+  // allocated per column. Each out[j] still sums v[i] m[i][j] in order of i.
+  Vec out(m[0].size(), 0.0);
+  for (std::size_t i = 0; i < m.size(); ++i) {
+    const double vi = v[i];
+    const Vec& row = m[i];
+    for (std::size_t j = 0; j < out.size(); ++j) out[j] += vi * row[j];
   }
   return out;
 }
@@ -55,12 +57,15 @@ inline Mat Inverse(const Mat& m) {
       if (std::abs(a[r][c]) > std::abs(a[pivot][c])) pivot = r;
     }
     std::swap(a[c], a[pivot]);
+    // Columns left of c are already unit columns (exact zeros off the
+    // diagonal), so each row operation starts at column c.
     const double d = a[c][c];
-    for (double& x : a[c]) x /= d;
+    for (std::size_t j = c; j < 2 * n; ++j) a[c][j] /= d;
     for (std::size_t r = 0; r < n; ++r) {
       if (r == c) continue;
       const double k = a[r][c];
-      for (std::size_t j = 0; j < 2 * n; ++j) a[r][j] -= k * a[c][j];
+      if (k == 0) continue;
+      for (std::size_t j = c; j < 2 * n; ++j) a[r][j] -= k * a[c][j];
     }
   }
   Mat inv(n);
@@ -71,6 +76,51 @@ inline Mat Inverse(const Mat& m) {
 }
 
 // c_ij = rho_ij sigma_i sigma_j.
+// Solves C x = b for each right-hand side b, for a symmetric C. Uses a
+// Cholesky factorisation C = L L^T (n^3/6 multiply-adds, then n^2 per right-
+// hand side) when C is positive definite, as a covariance matrix of
+// non-redundant assets is; otherwise falls back to the explicit inverse. For
+// symmetric C, x = b C^-1 read as a row vector, so this replaces
+// VecMat(b, Inverse(c)) without forming the inverse.
+inline std::vector<Vec> SolveSymmetric(const Mat& c, std::vector<Vec> rhs) {
+  const std::size_t n = c.size();
+  Vec l(n * n, 0.0);  // Row-major lower triangle.
+  bool positive_definite = true;
+  for (std::size_t i = 0; i < n && positive_definite; ++i) {
+    for (std::size_t j = 0; j <= i; ++j) {
+      double sum = c[i][j];
+      for (std::size_t k = 0; k < j; ++k) sum -= l[i * n + k] * l[j * n + k];
+      if (i == j) {
+        if (!(sum > 0)) {
+          positive_definite = false;
+          break;
+        }
+        l[i * n + i] = std::sqrt(sum);
+      } else {
+        l[i * n + j] = sum / l[j * n + j];
+      }
+    }
+  }
+  if (!positive_definite) {
+    const Mat inv = Inverse(c);
+    for (Vec& b : rhs) b = VecMat(b, inv);
+    return rhs;
+  }
+  for (Vec& b : rhs) {
+    for (std::size_t i = 0; i < n; ++i) {  // L z = b.
+      double sum = b[i];
+      for (std::size_t k = 0; k < i; ++k) sum -= l[i * n + k] * b[k];
+      b[i] = sum / l[i * n + i];
+    }
+    for (std::size_t i = n; i-- > 0;) {  // L^T x = z.
+      double sum = b[i];
+      for (std::size_t k = i + 1; k < n; ++k) sum -= l[k * n + i] * b[k];
+      b[i] = sum / l[i * n + i];
+    }
+  }
+  return rhs;
+}
+
 inline Mat CovarianceMatrix(const Vec& sigma, const Mat& rho) {
   const std::size_t n = sigma.size();
   Mat c(n, Vec(n));
@@ -90,7 +140,7 @@ inline double PortfolioStd(const Vec& w, const Mat& c) {
 
 // Section 5.3.2: efficient frontier. w = u C^-1 / (u C^-1 u^T).
 inline Vec MinVariancePortfolio(const Mat& c) {
-  Vec w = VecMat(Vec(c.size(), 1.0), Inverse(c));
+  Vec w = std::move(SolveSymmetric(c, {Vec(c.size(), 1.0)})[0]);
   const double s = Sum(w);
   for (double& x : w) x /= s;
   return w;
@@ -100,9 +150,10 @@ inline Vec MinVariancePortfolio(const Mat& c) {
 // b = u C^-1 m^T, c = m C^-1 m^T:
 //   w = ((c - b mu_v) u C^-1 + (a mu_v - b) m C^-1) / (a c - b^2)
 inline Vec MinVarianceLine(const Vec& m, const Mat& cov, double mu_v) {
-  const Mat cov_inv = Inverse(cov);
-  const Vec u_cov_inv = VecMat(Vec(cov.size(), 1.0), cov_inv);
-  const Vec m_cov_inv = VecMat(m, cov_inv);
+  const std::vector<Vec> solved =
+      SolveSymmetric(cov, {Vec(cov.size(), 1.0), m});
+  const Vec& u_cov_inv = solved[0];
+  const Vec& m_cov_inv = solved[1];
   const double a = Sum(u_cov_inv);
   const double b = Dot(u_cov_inv, m);
   const double c = Dot(m_cov_inv, m);
@@ -120,7 +171,7 @@ inline Vec MinVarianceLine(const Vec& m, const Mat& cov, double mu_v) {
 inline Vec MarketPortfolio(const Vec& m, const Mat& c, double r) {
   Vec excess;
   for (double x : m) excess.push_back(x - r);
-  Vec w = VecMat(excess, Inverse(c));
+  Vec w = std::move(SolveSymmetric(c, {std::move(excess)})[0]);
   const double s = Sum(w);
   for (double& x : w) x /= s;
   return w;
