@@ -55,8 +55,18 @@ def self_financing_multi(
 def self_financing(
     v0: float, s: Sequence[float], a: Sequence[float], x: Sequence[float]
 ) -> tuple[list[float], list[float]]:
-    """One stock: y(n) and V(n) of the self-financing strategy."""
-    return self_financing_multi(v0, [s], a, [x])
+    """One stock: y(n) and V(n) of the self-financing strategy.
+
+    Same arithmetic as self_financing_multi with one stock and no dividends,
+    without the inner loops.
+    """
+    values = [v0]
+    y: list[float] = []
+    for n in range(1, len(a)):
+        y_n = (values[n - 1] - x[n - 1] * s[n - 1]) / a[n - 1]
+        y.append(y_n)
+        values.append(y_n * a[n] + x[n - 1] * s[n])
+    return y, values
 
 
 def gains(

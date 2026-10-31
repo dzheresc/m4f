@@ -84,6 +84,27 @@ class LibraryTest(unittest.TestCase):
                     ),
                     v0,
                 )
+        # The depth-first walk against a direct enumeration of all paths,
+        # under a real-world p, for each rule.
+        steps = 6
+        for rule in rules:
+            expected = 0.0
+            for mask in range(1 << steps):
+                moves = [(mask >> i) & 1 for i in range(steps)]
+                s, a, x, weight = [100.0], [1.0], [], 1.0
+                for n in range(1, steps + 1):
+                    s.append(s[-1] * (1.10 if moves[n - 1] else 0.95))
+                    a.append(a[-1] * 1.03)
+                    x.append(rule(n, moves[: n - 1]))
+                    weight *= 0.6 if moves[n - 1] else 0.4
+                _, values = strategies.self_financing(100.0, s, a, x)
+                expected += weight * values[steps] / a[steps]
+            self.assertAlmostEqual(
+                no_arbitrage.expected_discounted_value(
+                    100, 0.10, -0.05, 0.03, steps, 100.0, rule, 0.6
+                ),
+                expected,
+            )
 
 
 if __name__ == "__main__":

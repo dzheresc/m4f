@@ -41,9 +41,21 @@ fun selfFinancingMulti(
     return StrategyPath(y, values)
 }
 
-/** One stock: y(n) and V(n) of the self-financing strategy with initial value [v0]. */
-fun selfFinancing(v0: Double, s: List<Double>, a: List<Double>, x: List<Double>): StrategyPath =
-    selfFinancingMulti(v0, listOf(s), a, listOf(x))
+/**
+ * One stock: y(n) and V(n) of the self-financing strategy with initial value [v0]. Same
+ * arithmetic as selfFinancingMulti with one stock and no dividends, without the inner loops.
+ */
+fun selfFinancing(v0: Double, s: List<Double>, a: List<Double>, x: List<Double>): StrategyPath {
+    val numSteps = a.size - 1
+    val values = DoubleArray(numSteps + 1)
+    val y = DoubleArray(numSteps)
+    values[0] = v0
+    for (n in 1..numSteps) {
+        y[n - 1] = (values[n - 1] - x[n - 1] * s[n - 1]) / a[n - 1]
+        values[n] = y[n - 1] * a[n] + x[n - 1] * s[n]
+    }
+    return StrategyPath(y.asList(), values.asList())
+}
 
 /** V(N) - V(0) = sum_n x(n) (S(n) - S(n-1)) + y(n) (A(n) - A(n-1)). */
 fun gains(s: List<Double>, a: List<Double>, x: List<Double>, y: List<Double>): Double {

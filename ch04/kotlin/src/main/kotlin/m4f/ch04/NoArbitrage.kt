@@ -79,6 +79,9 @@ typealias Rule = (Int, List<Int>) -> Double
 /**
  * E(V~(N)) over all 2^N paths, with V~(N) = V(N) / (1+r)^N and A(0) = 1. Under p = p* this equals
  * V(0) for every self-financing rule.
+ *
+ * The paths are walked depth first, so paths share their common prefix: the rule is called once
+ * per tree node (2^N - 1 calls in all, with the moves so far), and nothing is allocated per path.
  */
 fun expectedDiscountedValue(
     s0: Double,
@@ -90,18 +93,26 @@ fun expectedDiscountedValue(
     rule: Rule,
     p: Double,
 ): Double {
-    val a = (0..numSteps).map { (1 + r).pow(it) }
+    val a = DoubleArray(numSteps + 1) { (1 + r).pow(it) }
+    val moves = ArrayList<Int>(numSteps)
     var total = 0.0
-    for (mask in 0 until (1 shl numSteps)) {
-        val moves = (0 until numSteps).map { (mask shr it) and 1 }
-        val s = mutableListOf(s0)
-        for (move in moves) {
-            s.add(s.last() * (1 + (if (move == 1) u else d)))
+
+    // At time n-1 with stock price s and strategy value v, reached with probability weight;
+    // chooses x(n) and branches on the n-th move.
+    fun walk(n: Int, s: Double, v: Double, weight: Double) {
+        if (n > numSteps) {
+            total += weight * v / a[numSteps]
+            return
         }
-        val x = (1..numSteps).map { n -> rule(n, moves.subList(0, n - 1)) }
-        val values = selfFinancing(v0, s, a, x).values
-        val ups = moves.sum()
-        total += p.pow(ups) * (1 - p).pow(numSteps - ups) * values[numSteps] / a[numSteps]
+        val x = rule(n, moves)
+        val y = (v - x * s) / a[n - 1]
+        for (move in 0..1) {
+            val sNext = s * (1 + if (move == 1) u else d)
+            moves.add(move)
+            walk(n + 1, sNext, y * a[n] + x * sNext, weight * if (move == 1) p else 1 - p)
+            moves.removeAt(moves.lastIndex)
+        }
     }
+    walk(1, s0, v0, 1.0)
     return total
 }
