@@ -26,7 +26,7 @@ run() {
   fi
 }
 
-cpp_files=(cpp/include/m4f/*.h cpp/src/*.cc cpp/tests/*.cc)
+cpp_files=(cpp/include/m4f/*.h cpp/src/*.cc cpp/tests/*.cc cpp/benchmarks/*.cc)
 if ((fix)); then
   run clang-format clang-format -i "${cpp_files[@]}"
   run pyink pyink --quiet --config pyproject.toml python
@@ -35,7 +35,7 @@ if ((fix)); then
 fi
 
 run clang-format clang-format --dry-run --Werror "${cpp_files[@]}"
-run cpplint bash -c 'cd cpp && cpplint --quiet --recursive include src tests'
+run cpplint bash -c 'cd cpp && cpplint --quiet --recursive include src tests benchmarks'
 run pyink pyink --quiet --check --config pyproject.toml python
 run pylint bash -c 'cd python && pylint --rcfile=pylintrc --score=n *.py'
 run ktlint ktlint --relative "kotlin/src/**/*.kt"
