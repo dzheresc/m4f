@@ -44,8 +44,8 @@ open class Curve {
 open class Hedge {
     @Param("5", "260")
     var steps = 0
-    private val b1 = couponBond(100.0, 8.0, 2)
-    private val b2 = couponBond(100.0, 6.0, 10)
+    private val b1 = couponBond(100.0, 4.0, 5)
+    private val b2 = couponBond(100.0, 8.0, 10)
     private lateinit var path: List<Pair<Double, Double>>
 
     @Setup

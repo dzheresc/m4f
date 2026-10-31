@@ -78,8 +78,9 @@ def main() -> None:
                 ),
             )
         )
-    b1 = bonds.coupon_bond(100.0, 8.0, 2)
-    b2 = bonds.coupon_bond(100.0, 6.0, 10)
+    # The report's bonds, both alive over the 5-year horizon.
+    b1 = bonds.coupon_bond(100.0, 4.0, 5)
+    b2 = bonds.coupon_bond(100.0, 8.0, 10)
     for steps in (5, 260):
         rng = random.Random(steps)
         path = [(0.0, 0.06)]
