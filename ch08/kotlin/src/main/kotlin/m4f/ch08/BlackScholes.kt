@@ -102,7 +102,10 @@ fun crrTreePrice(
     for (n in numSteps - 1 downTo 0) {
         for (k in 0..n) {
             var v = (q * values[k + 1] + (1 - q) * values[k]) / (1 + rStep)
-            if (american) v = max(v, payoff(price(n, k)))
+            if (american) {
+                val e = payoff(price(n, k))
+                if (v < e) v = e // max(v, e) without Math.max's NaN and signed-zero checks.
+            }
             values[k] = v
         }
     }

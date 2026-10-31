@@ -8,7 +8,6 @@ package m4f.ch08
 import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.ln1p
-import kotlin.math.max
 import kotlin.math.pow
 
 typealias Payoff = (Double) -> Double
@@ -92,7 +91,12 @@ private fun optionTreeRows(
         val next = later
         later = DoubleArray(n + 1) { k ->
             val v = (q * next[k + 1] + (1 - q) * next[k]) / (1 + r)
-            if (american) max(v, payoff(price(n, k))) else v
+            if (american) {
+                val e = payoff(price(n, k))
+                if (v < e) e else v // max(v, e) without Math.max's NaN and signed-zero checks.
+            } else {
+                v
+            }
         }
         rows[n] = later
     }
