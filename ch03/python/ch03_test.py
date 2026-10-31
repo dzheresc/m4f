@@ -37,6 +37,14 @@ class LibraryTest(unittest.TestCase):
         self.assertAlmostEqual(
             sum(binomial_tree.binomial_prob(5, k, 0.3) for k in range(6)), 1
         )
+        # Large n: C(2000, 1000) alone overflows a float.
+        self.assertAlmostEqual(
+            sum(binomial_tree.binomial_prob(2000, k, 0.6) for k in range(2001)),
+            1,
+        )
+        self.assertAlmostEqual(
+            binomial_tree.binomial_prob(2000, 1000, 0.5), 0.017839011, places=9
+        )
         tree = binomial_tree.BinomialTree(60, 0.2, -0.1, 0.05)
         q = tree.risk_neutral_prob()
         self.assertTrue(tree.is_arbitrage_free())
