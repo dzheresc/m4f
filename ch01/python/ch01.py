@@ -1,174 +1,362 @@
 #!/usr/bin/env python3
-"""Chapter 1 worked examples. Output is byte-identical to the C++ and Kotlin versions."""
-from forward import (forward_arbitrage, forward_price, implied_foreign_rate,
-                     long_forward_payoff, short_forward_payoff)
-from fx_arbitrage import FxMarket, FxQuote
-from one_step import (OneStepMarket, Portfolio, State, call_payoff, hedged_purchase_cost,
-                      put_payoff)
+"""Chapter 1 worked examples.
 
-UP, DOWN = State.UP, State.DOWN
+The output is byte-identical to the C++ and Kotlin versions.
+"""
+
+import forward
+import fx_arbitrage
+import one_step
+
+UP = one_step.State.UP
+DOWN = one_step.State.DOWN
 
 
-def f(v: float) -> str:
+def fmt(v: float) -> str:
+    """Four decimals; adding 0.0 turns -0.0 into 0.0."""
     return f"{v + 0.0:.4f}"
 
 
-def portfolio_line(m: OneStepMarket, name: str, P: Portfolio) -> str:
-    ku, kd = m.portfolio_return(P, UP), m.portfolio_return(P, DOWN)
-    return (f"{name}: x={f(P.x)} y={f(P.y)} V(0)={f(m.value0(P))} "
-            f"V(1)={f(m.value1(P, UP))}|{f(m.value1(P, DOWN))} "
-            f"K_V={f(ku)}|{f(kd)}")
+def portfolio_line(
+    market: one_step.OneStepMarket, name: str, portfolio: one_step.Portfolio
+) -> str:
+    k_up = market.portfolio_return(portfolio, UP)
+    k_down = market.portfolio_return(portfolio, DOWN)
+    return (
+        f"{name}: x={fmt(portfolio.x)} y={fmt(portfolio.y)} "
+        f"V(0)={fmt(market.value0(portfolio))} "
+        f"V(1)={fmt(market.value1(portfolio, UP))}|"
+        f"{fmt(market.value1(portfolio, DOWN))} "
+        f"K_V={fmt(k_up)}|{fmt(k_down)}"
+    )
 
 
-def option_line(m: OneStepMarket, name: str, Du: float, Dd: float) -> str:
-    R = m.replicate(Du, Dd)
-    return (f"{name}: payoff {f(Du)}|{f(Dd)} replicate x={f(R.x)} y={f(R.y)} "
-            f"price={f(m.price(Du, Dd))}")
+def risk_line(
+    market: one_step.OneStepMarket, name: str, portfolio: one_step.Portfolio
+) -> str:
+    k_up = market.portfolio_return(portfolio, UP)
+    k_down = market.portfolio_return(portfolio, DOWN)
+    return (
+        f"{name}: x={fmt(portfolio.x)} y={fmt(portfolio.y)} "
+        f"V(1)={fmt(market.value1(portfolio, UP))}|"
+        f"{fmt(market.value1(portfolio, DOWN))} "
+        f"K_V={fmt(k_up)}|{fmt(k_down)} "
+        f"E(K_V)={fmt(market.expect(k_up, k_down))} "
+        f"sigma_V={fmt(market.stddev(k_up, k_down))}"
+    )
 
 
-def risk_line(m: OneStepMarket, name: str, P: Portfolio) -> str:
-    ku, kd = m.portfolio_return(P, UP), m.portfolio_return(P, DOWN)
-    return (f"{name}: x={f(P.x)} y={f(P.y)} V(1)={f(m.value1(P, UP))}|{f(m.value1(P, DOWN))} "
-            f"K_V={f(ku)}|{f(kd)} E(K_V)={f(m.expect(ku, kd))} sigma_V={f(m.stddev(ku, kd))}")
+def option_line(
+    market: one_step.OneStepMarket, name: str, d_up: float, d_down: float
+) -> str:
+    replica = market.replicate(d_up, d_down)
+    return (
+        f"{name}: payoff {fmt(d_up)}|{fmt(d_down)} "
+        f"replicate x={fmt(replica.x)} y={fmt(replica.y)} "
+        f"price={fmt(market.price(d_up, d_down))}"
+    )
 
 
-def arbitrage_lines(m: OneStepMarket) -> list[str]:
-    lines = [f"d < r < u: {f(m.d)} < {f(m.r)} < {f(m.u)} -> arbitrage-free: "
-             f"{'yes' if m.is_arbitrage_free else 'no'}"]
-    if (P := m.arbitrage()) is not None:
-        lines.append(f"Arbitrage: x={f(P.x)} y={f(P.y)} V(0)={f(m.value0(P))} "
-                     f"V(1)={f(m.value1(P, UP))}|{f(m.value1(P, DOWN))}")
+def arbitrage_lines(market: one_step.OneStepMarket) -> list[str]:
+    free = "yes" if market.is_arbitrage_free else "no"
+    lines = [
+        f"d < r < u: {fmt(market.d)} < {fmt(market.r)} < {fmt(market.u)} "
+        f"-> arbitrage-free: {free}"
+    ]
+    arb = market.arbitrage()
+    if arb is not None:
+        lines.append(
+            f"Arbitrage: x={fmt(arb.x)} y={fmt(arb.y)} "
+            f"V(0)={fmt(market.value0(arb))} "
+            f"V(1)={fmt(market.value1(arb, UP))}|"
+            f"{fmt(market.value1(arb, DOWN))}"
+        )
     return lines
 
 
-def report() -> str:
-    out: list[str] = []
-    line = out.append
+def returns_and_portfolios(out: list[str]) -> None:
+    """Examples 1.1-1.2, Exercises 1.1-1.2 and the no-arbitrage check."""
+    # The book leaves p unspecified (0 < p < 1); it does not affect anything
+    # printed here.
+    ex = one_step.OneStepMarket(100.0, 110.0, 50.0, 52.0, 48.0, 0.5)
 
-    # Examples 1.1-1.2. The book leaves p unspecified (0 < p < 1); it does not
-    # affect anything printed here.
-    ex = OneStepMarket(100.0, 110.0, 50.0, 52.0, 48.0, 0.5)
+    out.append("== Example 1.1: returns ==")
+    out.append(
+        f"A(0)={fmt(ex.a0)} A(1)={fmt(ex.a1)} S(0)={fmt(ex.s0)} "
+        f"S(1)={fmt(ex.s_up)}|{fmt(ex.s_down)}"
+    )
+    out.append(f"K_A={fmt(ex.r)} K_S={fmt(ex.u)}|{fmt(ex.d)}")
 
-    line("== Example 1.1: returns ==")
-    line(f"A(0)={f(ex.A0)} A(1)={f(ex.A1)} S(0)={f(ex.S0)} S(1)={f(ex.Su)}|{f(ex.Sd)}")
-    line(f"K_A={f(ex.r)} K_S={f(ex.u)}|{f(ex.d)}")
-
-    line("\n== Example 1.2: portfolio value and return ==")
-    line(portfolio_line(ex, "Portfolio", Portfolio(20.0, 10.0)))
+    out.append("\n== Example 1.2: portfolio value and return ==")
+    out.append(portfolio_line(ex, "Portfolio", one_step.Portfolio(20.0, 10.0)))
 
     # Exercises 1.1-1.2 (again p is left unspecified).
-    exr = OneStepMarket(90.0, 100.0, 25.0, 30.0, 20.0, 0.5)
-    line("\n== Exercise 1.1: A(0)=90 A(1)=100 S(0)=25 S(1)=30|20 ==")
-    line(portfolio_line(exr, "Portfolio", Portfolio(10.0, 15.0)))
+    exr = one_step.OneStepMarket(90.0, 100.0, 25.0, 30.0, 20.0, 0.5)
+    out.append("\n== Exercise 1.1: A(0)=90 A(1)=100 S(0)=25 S(1)=30|20 ==")
+    out.append(portfolio_line(exr, "Portfolio", one_step.Portfolio(10.0, 15.0)))
 
-    line("\n== Exercise 1.2: portfolio with V(1)=1160|1040 ==")
-    line(portfolio_line(exr, "Solution", exr.replicate(1160.0, 1040.0)))
+    out.append("\n== Exercise 1.2: portfolio with V(1)=1160|1040 ==")
+    out.append(portfolio_line(exr, "Solution", exr.replicate(1160.0, 1040.0)))
 
-    line("\n== No-arbitrage check on the Example 1.1 market ==")
+    out.append("\n== No-arbitrage check on the Example 1.1 market ==")
     out.extend(arbitrage_lines(ex))
 
-    line("\n== Exercise 1.3: currency dealers A (New York) and B (London) ==")
-    fx = FxMarket([FxQuote("A", "EUR", "USD", 1.0202, 1.0284),
-                   FxQuote("A", "GBP", "USD", 1.5718, 1.5844),
-                   FxQuote("B", "EUR", "GBP", 0.6324, 0.6401),
-                   FxQuote("B", "USD", "GBP", 0.6299, 0.6375)])
-    cyc = fx.best_cycle("USD")
-    line("Best round trip: " + " -> ".join(["USD"] + [l.to for l in cyc.legs]))
-    for l in cyc.legs:
-        line(f"  {l.from_} -> {l.to} with dealer {l.dealer}: rate {l.rate:.6f}")
-    line(f"1 USD -> {cyc.growth:.6f} USD: "
-         + ("arbitrage (borrow USD, run the cycle, repay)" if cyc.growth > 1 else "no arbitrage"))
 
-    # Example 1.4 / Figure 1.1
-    # (p left unspecified by the book).
-    m = OneStepMarket(100.0, 110.0, 100.0, 125.0, 105.0, 0.5)
-    Su, Sd = m.S1(UP), m.S1(DOWN)
-    line("\n== Example 1.4: one-step binomial tree (Figure 1.1) ==")
-    line(f"A(0)={f(m.A0)} A(1)={f(m.A1)} S(0)={f(m.S0)} S(1)={f(Su)}|{f(Sd)}")
-    line(f"K_A={f(m.r)} K_S={f(m.u)}|{f(m.d)}")
-    line(f"Proposition 1.1 (S(0)=A(0)): S^d < A(1) < S^u: {f(Sd)} < {f(m.A1)} < {f(Su)} -> "
-         + ("holds" if Sd < m.A1 < Su else "fails"))
-    # Proof of Proposition 1.1: the two violating cases (illustrative S(1) values).
-    for up, down, label in ((130.0, 110.0, "A(1) <= S^d"), (110.0, 90.0, "A(1) >= S^u")):
-        bad = OneStepMarket(100.0, 110.0, 100.0, up, down, 0.5)
-        P = bad.arbitrage()
-        assert P is not None
-        line(f"  proof, case {label} (S(1)={f(up)}|{f(down)}): x={f(P.x)} y={f(P.y)} V(0)={f(bad.value0(P))} "
-             f"V(1)={f(bad.value1(P, UP))}|{f(bad.value1(P, DOWN))}")
-    out.extend(arbitrage_lines(m))
+def currency_arbitrage(out: list[str]) -> None:
+    """Exercise 1.3."""
+    out.append(
+        "\n== Exercise 1.3: currency dealers A (New York) and B (London) =="
+    )
+    fx = fx_arbitrage.FxMarket(
+        [
+            fx_arbitrage.FxQuote("A", "EUR", "USD", 1.0202, 1.0284),
+            fx_arbitrage.FxQuote("A", "GBP", "USD", 1.5718, 1.5844),
+            fx_arbitrage.FxQuote("B", "EUR", "GBP", 0.6324, 0.6401),
+            fx_arbitrage.FxQuote("B", "USD", "GBP", 0.6299, 0.6375),
+        ]
+    )
+    cycle = fx.best_cycle("USD")
+    route = " -> ".join(["USD"] + [leg.to for leg in cycle.legs])
+    out.append(f"Best round trip: {route}")
+    for leg in cycle.legs:
+        out.append(
+            f"  {leg.from_} -> {leg.to} with dealer {leg.dealer}: "
+            f"rate {leg.rate:.6f}"
+        )
+    verdict = (
+        "arbitrage (borrow USD, run the cycle, repay)"
+        if cycle.growth > 1
+        else "no arbitrage"
+    )
+    out.append(f"1 USD -> {cycle.growth:.6f} USD: {verdict}")
 
 
-    # Section 1.4: risk and return, $10,000 to invest.
-    rr = OneStepMarket(100.0, 110.0, 80.0, 100.0, 60.0, 0.8)
-    line("\n== 1.4 Risk and return: A=100->110, S(0)=80, S(1)=100|60, p=0.8, budget 10000 ==")
-    line(risk_line(rr, "Mixed", Portfolio(50.0, 60.0)))
-    line(risk_line(rr, "Bonds only", Portfolio(0.0, 100.0)))
-    line(risk_line(rr, "Stock only", Portfolio(125.0, 0.0)))
-    line(risk_line(rr, "Exercise 1.4 (50/50)", rr.split(10000.0, 0.5)))
+def binomial_tree(out: list[str]) -> None:
+    """Example 1.4 / Figure 1.1 and the proof of Proposition 1.1."""
+    # p is left unspecified by the book.
+    market = one_step.OneStepMarket(100.0, 110.0, 100.0, 125.0, 105.0, 0.5)
+    s_up, s_down = market.s1(UP), market.s1(DOWN)
+    out.append("\n== Example 1.4: one-step binomial tree (Figure 1.1) ==")
+    out.append(
+        f"A(0)={fmt(market.a0)} A(1)={fmt(market.a1)} S(0)={fmt(market.s0)} "
+        f"S(1)={fmt(s_up)}|{fmt(s_down)}"
+    )
+    out.append(f"K_A={fmt(market.r)} K_S={fmt(market.u)}|{fmt(market.d)}")
+    holds = "holds" if s_down < market.a1 < s_up else "fails"
+    out.append(
+        "Proposition 1.1 (S(0)=A(0)): S^d < A(1) < S^u: "
+        f"{fmt(s_down)} < {fmt(market.a1)} < {fmt(s_up)} -> {holds}"
+    )
+    # Proof of Proposition 1.1: the two violating cases (illustrative S(1)
+    # values).
+    for up, down, label in (
+        (130.0, 110.0, "A(1) <= S^d"),
+        (110.0, 90.0, "A(1) >= S^u"),
+    ):
+        bad = one_step.OneStepMarket(100.0, 110.0, 100.0, up, down, 0.5)
+        arb = bad.arbitrage()
+        if arb is None:
+            raise RuntimeError(f"expected an arbitrage in case {label}")
+        out.append(
+            f"  proof, case {label} (S(1)={fmt(up)}|{fmt(down)}): "
+            f"x={fmt(arb.x)} y={fmt(arb.y)} V(0)={fmt(bad.value0(arb))} "
+            f"V(1)={fmt(bad.value1(arb, UP))}|{fmt(bad.value1(arb, DOWN))}"
+        )
+    out.extend(arbitrage_lines(market))
 
-    line("\n== 1.5 Forward contracts ==")
-    line(f"Example 1.5: F={f(80.0)}")
-    for S1 in (84.0, 75.0):
-        line(f"  S(1)={f(S1)}: long payoff {f(long_forward_payoff(S1, 80.0))}, "
-             f"short payoff {f(short_forward_payoff(S1, 80.0))}")
-    line(f"Proposition 1.2: S(0)=50 A(0)=100 A(1)=110 -> F = S(0)(1+r) = {f(forward_price(50.0, 100.0, 110.0))}")
-    S0, A0, A1, F = 34.0, 100.0, 112.0, 38.60
-    line(f"Exercise 1.5: A=100->112, S(0)=34, quoted F={f(F)}, fair F={f(forward_price(S0, A0, A1))}")
-    FP = forward_arbitrage(S0, A0, A1, F)
-    assert FP is not None
-    line(f"  arbitrage (x,y,z)=({f(FP.x)},{f(FP.y)},{f(FP.z)}) V(0)={f(FP.value0(S0, A0))} "
-         f"V(1)={f(FP.value1(30.0, A1, F))}|{f(FP.value1(40.0, A1, F))}|{f(FP.value1(50.0, A1, F))} "
-         "for S(1)=30|40|50")
-    rf = implied_foreign_rate(1.6, 1.50, 0.05)
-    line(f"Exercise 1.6: A=100->105 USD, S(0)=1.6 USD/GBP, F=1.50 -> sterling rate {f(rf)}, "
-         f"bond paying GBP 100 costs GBP {f(100.0 / (1 + rf))}")
 
-    # Section 1.6: call and put options (p left unspecified by the book).
-    o = OneStepMarket(100.0, 110.0, 100.0, 120.0, 80.0, 0.5)
-    Ou, Od = o.S1(UP), o.S1(DOWN)
-    line("\n== 1.6 Call and put options: A=100->110, S(0)=100, S(1)=120|80 ==")
-    line(option_line(o, "Call X=100", call_payoff(Ou, 100.0), call_payoff(Od, 100.0)))
-    for X in (90.0, 110.0):
-        line(option_line(o, f"Exercise 1.7 call X={X:.0f}", call_payoff(Ou, X), call_payoff(Od, X)))
-    for A1 in (105.0, 115.0):
-        o8 = OneStepMarket(100.0, A1, 100.0, 120.0, 80.0, 0.5)
-        line(option_line(o8, f"Exercise 1.8 call X=100, A(1)={A1:.0f}",
-                         call_payoff(Ou, 100.0), call_payoff(Od, 100.0)))
-    line(option_line(o, "Exercise 1.9 put X=100", put_payoff(Ou, 100.0), put_payoff(Od, 100.0)))
-    X = 100.0
-    Cu, Cd = call_payoff(Ou, X), call_payoff(Od, X)
-    Pu, Pd = put_payoff(Ou, X), put_payoff(Od, X)
-    C0, P0 = o.price(Cu, Cd), o.price(Pu, Pd)
-    line(f"Risk-neutral p*={f(o.risk_neutral_prob)} -> C(0)={f(o.risk_neutral_price(Cu, Cd))} "
-         f"P(0)={f(o.risk_neutral_price(Pu, Pd))}")
-    line(f"Put-call parity: C(0)-P(0)={f(C0 - P0)} S(0)-X/(1+r)={f(o.S0 - X / (1 + o.r))}")
+def risk_and_return(out: list[str]) -> None:
+    """Section 1.4 and Exercise 1.4: risk and return, $10,000 to invest."""
+    market = one_step.OneStepMarket(100.0, 110.0, 80.0, 100.0, 60.0, 0.8)
+    out.append(
+        "\n== 1.4 Risk and return: A=100->110, S(0)=80, S(1)=100|60, p=0.8, "
+        "budget 10000 =="
+    )
+    out.append(risk_line(market, "Mixed", one_step.Portfolio(50.0, 60.0)))
+    out.append(risk_line(market, "Bonds only", one_step.Portfolio(0.0, 100.0)))
+    out.append(risk_line(market, "Stock only", one_step.Portfolio(125.0, 0.0)))
+    out.append(
+        risk_line(market, "Exercise 1.4 (50/50)", market.split(10000.0, 0.5))
+    )
 
-    line("\n== 1.7 Managing risk with options (section 1.6 market, budget 1000) ==")
+
+def forwards(out: list[str]) -> None:
+    """Section 1.5: Example 1.5, Proposition 1.2, Exercises 1.5-1.6."""
+    out.append("\n== 1.5 Forward contracts ==")
+    out.append(f"Example 1.5: F={fmt(80.0)}")
+    for s1 in (84.0, 75.0):
+        out.append(
+            f"  S(1)={fmt(s1)}: "
+            f"long payoff {fmt(forward.long_forward_payoff(s1, 80.0))}, "
+            f"short payoff {fmt(forward.short_forward_payoff(s1, 80.0))}"
+        )
+    out.append(
+        "Proposition 1.2: S(0)=50 A(0)=100 A(1)=110 -> F = S(0)(1+r) = "
+        f"{fmt(forward.forward_price(50.0, 100.0, 110.0))}"
+    )
+
+    s0, a0, a1, quoted = 34.0, 100.0, 112.0, 38.60
+    out.append(
+        f"Exercise 1.5: A=100->112, S(0)=34, quoted F={fmt(quoted)}, "
+        f"fair F={fmt(forward.forward_price(s0, a0, a1))}"
+    )
+    arb = forward.forward_arbitrage(s0, a0, a1, quoted)
+    if arb is None:
+        raise RuntimeError("expected a forward arbitrage in Exercise 1.5")
+    out.append(
+        f"  arbitrage (x,y,z)=({fmt(arb.x)},{fmt(arb.y)},{fmt(arb.z)}) "
+        f"V(0)={fmt(arb.value0(s0, a0))} "
+        f"V(1)={fmt(arb.value1(30.0, a1, quoted))}|"
+        f"{fmt(arb.value1(40.0, a1, quoted))}|"
+        f"{fmt(arb.value1(50.0, a1, quoted))} for S(1)=30|40|50"
+    )
+
+    foreign_rate = forward.implied_foreign_rate(1.6, 1.50, 0.05)
+    out.append(
+        "Exercise 1.6: A=100->105 USD, S(0)=1.6 USD/GBP, F=1.50 -> "
+        f"sterling rate {fmt(foreign_rate)}, "
+        f"bond paying GBP 100 costs GBP {fmt(100.0 / (1 + foreign_rate))}"
+    )
+
+
+def options(out: list[str]) -> None:
+    """Sections 1.6-1.7: options, Exercises 1.7-1.10."""
+    # p is left unspecified by the book.
+    market = one_step.OneStepMarket(100.0, 110.0, 100.0, 120.0, 80.0, 0.5)
+    s_up, s_down = market.s1(UP), market.s1(DOWN)
+    call_payoff, put_payoff = one_step.call_payoff, one_step.put_payoff
+    out.append(
+        "\n== 1.6 Call and put options: A=100->110, S(0)=100, S(1)=120|80 =="
+    )
+    out.append(
+        option_line(
+            market,
+            "Call X=100",
+            call_payoff(s_up, 100.0),
+            call_payoff(s_down, 100.0),
+        )
+    )
+    for strike in (90.0, 110.0):
+        out.append(
+            option_line(
+                market,
+                f"Exercise 1.7 call X={strike:.0f}",
+                call_payoff(s_up, strike),
+                call_payoff(s_down, strike),
+            )
+        )
+    for a1 in (105.0, 115.0):
+        market_1_8 = one_step.OneStepMarket(100.0, a1, 100.0, 120.0, 80.0, 0.5)
+        out.append(
+            option_line(
+                market_1_8,
+                f"Exercise 1.8 call X=100, A(1)={a1:.0f}",
+                call_payoff(s_up, 100.0),
+                call_payoff(s_down, 100.0),
+            )
+        )
+    out.append(
+        option_line(
+            market,
+            "Exercise 1.9 put X=100",
+            put_payoff(s_up, 100.0),
+            put_payoff(s_down, 100.0),
+        )
+    )
+
+    strike = 100.0
+    call_up, call_down = call_payoff(s_up, strike), call_payoff(s_down, strike)
+    put_up, put_down = put_payoff(s_up, strike), put_payoff(s_down, strike)
+    call0 = market.price(call_up, call_down)
+    put0 = market.price(put_up, put_down)
+    out.append(
+        f"Risk-neutral p*={fmt(market.risk_neutral_prob)} -> "
+        f"C(0)={fmt(market.risk_neutral_price(call_up, call_down))} "
+        f"P(0)={fmt(market.risk_neutral_price(put_up, put_down))}"
+    )
+    out.append(
+        f"Put-call parity: C(0)-P(0)={fmt(call0 - put0)} "
+        f"S(0)-X/(1+r)={fmt(market.s0 - strike / (1 + market.r))}"
+    )
+
+    out.append(
+        "\n== 1.7 Managing risk with options (section 1.6 market, "
+        "budget 1000) =="
+    )
     budget = 1000.0
-    nS, nC = budget / o.S0, budget / C0
-    line(f"All in stock: {f(nS)} shares -> V(1)={f(nS * Ou)}|{f(nS * Od)} "
-         f"return {f(nS * Ou / budget - 1)}|{f(nS * Od / budget - 1)}")
-    line(f"All in calls: {f(nC)} calls  -> V(1)={f(nC * Cu)}|{f(nC * Cd)} "
-         f"return {f(nC * Cu / budget - 1)}|{f(nC * Cd / budget - 1)}")
-    hS, hC = budget / 2 / o.S0, budget / 2 / C0
-    Vu, Vd = hS * Ou + hC * Cu, hS * Od + hC * Cd
-    line(f"Exercise 1.10 (50/50): {f(hS)} shares + {f(hC)} calls -> V(1)={f(Vu)}|{f(Vd)} "
-         f"return {f(Vu / budget - 1)}|{f(Vd / budget - 1)}")
+    num_shares, num_calls = budget / market.s0, budget / call0
+    out.append(
+        f"All in stock: {fmt(num_shares)} shares -> "
+        f"V(1)={fmt(num_shares * s_up)}|{fmt(num_shares * s_down)} "
+        f"return {fmt(num_shares * s_up / budget - 1)}|"
+        f"{fmt(num_shares * s_down / budget - 1)}"
+    )
+    out.append(
+        f"All in calls: {fmt(num_calls)} calls  -> "
+        f"V(1)={fmt(num_calls * call_up)}|{fmt(num_calls * call_down)} "
+        f"return {fmt(num_calls * call_up / budget - 1)}|"
+        f"{fmt(num_calls * call_down / budget - 1)}"
+    )
+    half_shares, half_calls = budget / 2 / market.s0, budget / 2 / call0
+    v_up = half_shares * s_up + half_calls * call_up
+    v_down = half_shares * s_down + half_calls * call_down
+    out.append(
+        f"Exercise 1.10 (50/50): {fmt(half_shares)} shares + "
+        f"{fmt(half_calls)} calls -> V(1)={fmt(v_up)}|{fmt(v_down)} "
+        f"return {fmt(v_up / budget - 1)}|{fmt(v_down / budget - 1)}"
+    )
 
-    # Hedging a future purchase with calls (strike 100).
-    h = OneStepMarket(100.0, 110.0, 100.0, 160.0, 40.0, 0.5)
-    line("\nHedging a future purchase: A=100->110, S(0)=100, S(1)=160|40, call X=100")
-    line(f"C(0)={f(h.price(60.0, 0.0))} -> loan repaid at t=1: {f(h.price(60.0, 0.0) * (1 + h.r))}")
-    for n in (0.0, 1.0, 2.0):
-        line(f"Cost of one share with {n:.0f} calls: {f(hedged_purchase_cost(h, 100.0, n, UP))}|"
-             f"{f(hedged_purchase_cost(h, 100.0, n, DOWN))}")
+
+def hedging(out: list[str]) -> None:
+    """Section 1.7: hedging a future purchase with calls, Ex. 1.11-1.12."""
+    cost = one_step.hedged_purchase_cost
+    market = one_step.OneStepMarket(100.0, 110.0, 100.0, 160.0, 40.0, 0.5)
+    out.append(
+        "\nHedging a future purchase: A=100->110, S(0)=100, S(1)=160|40, "
+        "call X=100"
+    )
+    out.append(
+        f"C(0)={fmt(market.price(60.0, 0.0))} -> loan repaid at t=1: "
+        f"{fmt(market.price(60.0, 0.0) * (1 + market.r))}"
+    )
+    for num_calls in (0.0, 1.0, 2.0):
+        out.append(
+            f"Cost of one share with {num_calls:.0f} calls: "
+            f"{fmt(cost(market, 100.0, num_calls, UP))}|"
+            f"{fmt(cost(market, 100.0, num_calls, DOWN))}"
+        )
     for p in (0.25, 0.5, 0.75):
-        hp = OneStepMarket(100.0, 110.0, 100.0, 160.0, 40.0, p)
-        s0 = hp.stddev(hedged_purchase_cost(hp, 100.0, 0.0, UP), hedged_purchase_cost(hp, 100.0, 0.0, DOWN))
-        s1 = hp.stddev(hedged_purchase_cost(hp, 100.0, 1.0, UP), hedged_purchase_cost(hp, 100.0, 1.0, DOWN))
-        line(f"Exercise 1.11/1.12 p={f(p)}: sigma without option={f(s0)} with option={f(s1)} ratio={f(s1 / s0)}")
+        market_p = one_step.OneStepMarket(100.0, 110.0, 100.0, 160.0, 40.0, p)
+        sigma_without = market_p.stddev(
+            cost(market_p, 100.0, 0.0, UP), cost(market_p, 100.0, 0.0, DOWN)
+        )
+        sigma_with = market_p.stddev(
+            cost(market_p, 100.0, 1.0, UP), cost(market_p, 100.0, 1.0, DOWN)
+        )
+        out.append(
+            f"Exercise 1.11/1.12 p={fmt(p)}: "
+            f"sigma without option={fmt(sigma_without)} "
+            f"with option={fmt(sigma_with)} "
+            f"ratio={fmt(sigma_with / sigma_without)}"
+        )
+
+
+def report() -> str:
+    """Returns the chapter's worked examples as text."""
+    out: list[str] = []
+    returns_and_portfolios(out)
+    currency_arbitrage(out)
+    binomial_tree(out)
+    risk_and_return(out)
+    forwards(out)
+    options(out)
+    hedging(out)
     return "\n".join(out) + "\n"
 
 
-if __name__ == "__main__":
+def main() -> None:
     print(report(), end="")
+
+
+if __name__ == "__main__":
+    main()

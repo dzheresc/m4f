@@ -17,3 +17,5 @@ Code for Capinski & Zastawniak, *Mathematics for Finance*. Each chapter is imple
 | [ch11](ch11/) | Stochastic interest rates: short-rate tree, bond pricing, risk-neutral probabilities, bond options, swaps, caps and floors |
 
 Run `./run_all.sh` inside a chapter to build, test and diff all three languages.
+
+Code style: Google style guides (Android style for Kotlin), see [STYLE.md](STYLE.md). Chapter 1 is converted so far.
