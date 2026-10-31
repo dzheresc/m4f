@@ -7,10 +7,11 @@ parallel implementations with the same API, and all three print the same output 
 
 ```
 ch07/
-  cpp/      C++20, CMake        include/m4f/{options,binomial}.hpp (header-only), src/report.cpp, tests/
+  cpp/      C++20, CMake        include/m4f/{options,binomial}.h (header-only), src/report.cc, tests/
   kotlin/   Kotlin 2.1, Gradle  src/main/kotlin/m4f/ch07/{Options,Binomial,Report}.kt, src/test/
-  python/   Python 3.10+        options.py, binomial.py, ch07.py, test_ch07.py
+  python/   Python 3.10+        options.py, binomial.py, ch07.py, ch07_test.py
   run_all.sh                    build + test + run all three and diff against expected_output.txt
+  check_style.sh                clang-format, cpplint, pyink, pylint, ktlint (whichever are installed)
 ```
 
 Interest is compounded continuously. The model prices used in 7.3–7.5 come from a 200-step Cox-Ross-Rubinstein
@@ -33,5 +34,12 @@ tree (`crrPrice`; σ = 0.2, r = 0.05), which Chapter 8 develops properly.
 ./run_all.sh
 cmake -S cpp -B cpp/build && cmake --build cpp/build -j && ctest --test-dir cpp/build && cpp/build/ch07
 cd kotlin && ./gradlew test run
-cd python && python3 -m unittest test_ch07 && python3 ch07.py
+cd python && python3 -m unittest ch07_test && python3 ch07.py
 ```
+
+## Code style
+
+The code follows the Google style guides for C++ and Python and the Android Kotlin style guide;
+see [STYLE.md](../STYLE.md). API names in this README are the Kotlin ones: C++ uses PascalCase
+for functions (`riskNeutralProb` is `RiskNeutralProb`) and Python uses snake_case. Run
+`./check_style.sh` to check, or `./check_style.sh --fix` to reformat.
