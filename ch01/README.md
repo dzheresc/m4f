@@ -1,7 +1,7 @@
 # Chapter 1 — Introduction: A Simple Market Model
 
 Code companion for *Mathematics for Finance: An Introduction to Financial Engineering*
-(Capiński & Zastawniak), Chapter 1, in three parallel implementations with the same API
+(Capiński & Zastawniak), Chapter 1, in four parallel implementations with the same API
 and byte-identical output (`expected_output.txt`).
 
 ```
@@ -9,9 +9,11 @@ ch01/
   cpp/      C++20, CMake      include/m4f/{one_step,forward,fx_arbitrage,check}.h, src/{fx_arbitrage,report}.cc, tests/
   kotlin/   Kotlin 2.1, Gradle src/main/kotlin/m4f/ch01/OneStepMarket.kt, Forward.kt, FxArbitrage.kt, Report.kt, src/test/
   python/   Python 3.10+, stdlib only  one_step.py, forward.py, fx_arbitrage.py, ch01.py, one_step_test.py
-  run_all.sh            build + test + run all three and diff against expected_output.txt
-  check_style.sh        clang-format, cpplint, pyink, pylint, ktlint (whichever are installed)
-  bench.sh              C++ microbenchmarks (Google Benchmark), --callgrind adds instruction counts
+  rust/     Rust 2024, Cargo   src/{one_step,forward,fx_arbitrage,report}.rs, tests/ch01_test.rs, benches/
+  run_all.sh            build + test + run all four and diff against expected_output.txt
+  check_style.sh        clang-format, cpplint, pyink, pylint, ktlint, rustfmt + clippy (whichever are installed)
+  bench.sh              C++ microbenchmarks (Google Benchmark), --callgrind adds instruction counts;
+                        --rust (Criterion), --rust-callgrind, --compare (Rust vs C++ table)
 ```
 
 ## Benchmarks
@@ -24,12 +26,18 @@ or downloading v1.9.1) and runs them five times. `./bench.sh --callgrind` also r
 under Valgrind; use those to compare versions on a noisy machine. Baseline numbers and
 notes are in [`cpp/benchmarks/RESULTS.md`](cpp/benchmarks/RESULTS.md).
 
+`rust/benches/` has the same cases for Rust: `cases.rs` lists them once, and both the
+Criterion harness (`./bench.sh --rust`) and a callgrind runner (`examples/bench_ir.rs`,
+`./bench.sh --rust-callgrind`) use that list. `./bench.sh --compare` runs both languages and
+prints a Rust vs C++ table of times and instruction counts; the results are in
+[`rust/benches/RESULTS.md`](rust/benches/RESULTS.md).
+
 ## The model
 
 One step, two assets: bond `A(0) -> A(1)`, stock `S(0) -> S^u(1)` (prob. `p`) or `S^d(1)`.
 Portfolio `(x, y)` = x shares + y bonds (negative = short sale / borrowing).
 
-| Concept | Formula | C++ (Kotlin and Python use lowerCamelCase / snake_case) |
+| Concept | Formula | C++ (Kotlin uses lowerCamelCase; Python and Rust snake_case) |
 |---|---|---|
 | Returns | `r = A(1)/A(0)-1`, `u`, `d` likewise for the stock | `r() u() d()` |
 | Portfolio value, return | `V = xS + yA`, `K_V = (V(1)-V(0))/V(0)` | `Value0 Value1 PortfolioReturn` |
@@ -82,13 +90,15 @@ cmake -S cpp -B cpp/build && cmake --build cpp/build -j && ctest --test-dir cpp/
 cd kotlin && ./gradlew test run
 # Python
 cd python && python3 -m unittest one_step_test && python3 ch01.py
+# Rust (1.86+)
+cd rust && cargo test --release && cargo run --release
 ```
 
 Formatting is 4 decimals with round-half-even on the exact double (`std::format`, Python f-strings,
-`BigDecimal` in Kotlin) so the three outputs diff cleanly.
+`BigDecimal` in Kotlin, `{:.4}` in Rust) so the four outputs diff cleanly.
 
 ## Code style
 
 The code follows the Google style guides for C++ and Python and the Android Kotlin style guide;
-see [STYLE.md](../STYLE.md). Run `./check_style.sh` to check, or `./check_style.sh --fix` to
+Rust, which has no Google guide, is rustfmt- and clippy-clean. See [STYLE.md](../STYLE.md). Run `./check_style.sh` to check, or `./check_style.sh --fix` to
 reformat.

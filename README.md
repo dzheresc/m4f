@@ -1,8 +1,8 @@
-# Mathematics for Finance in C++, Kotlin and Python
+# Mathematics for Finance in C++, Kotlin, Python and Rust
 
-Working code for every chapter of Capiński & Zastawniak, *Mathematics for Finance: An Introduction to Financial Engineering*. Each chapter is implemented three times, in C++20, Kotlin and Python 3, and all three print the same report.
+Working code for every chapter of Capiński & Zastawniak, *Mathematics for Finance: An Introduction to Financial Engineering*. Each chapter is implemented in C++20, Kotlin, Python 3 and Rust, and all of them print the same report. (Rust is being added chapter by chapter; a chapter with a `rust/` directory has it.)
 
-Builds: CMake for C++, Gradle for Kotlin; the Python code uses only the standard library.
+Builds: CMake for C++, Gradle for Kotlin, Cargo for Rust; the Python code uses only the standard library.
 
 | Chapter | Topic |
 |---|---|
@@ -18,8 +18,8 @@ Builds: CMake for C++, Gradle for Kotlin; the Python code uses only the standard
 | [ch10](ch10/) | Variable interest rates: duration, immunisation, dynamic hedging, forward rates, money market |
 | [ch11](ch11/) | Stochastic interest rates: short-rate tree, bond pricing, risk-neutral probabilities, bond options, swaps, caps and floors |
 
-Run `./run_all.sh` inside a chapter to build, test and diff all three languages.
+Run `./run_all.sh` inside a chapter to build, test and diff every language.
 
-Benchmarks and before/after results: [C++](PERFORMANCE.md), [Kotlin](PERFORMANCE_KOTLIN.md), [Python](PERFORMANCE_PYTHON.md). Each chapter runs them with `./bench.sh`, `./bench.sh --kotlin` or `./bench.sh --python`.
+Benchmarks and before/after results: [C++](PERFORMANCE.md), [Kotlin](PERFORMANCE_KOTLIN.md), [Python](PERFORMANCE_PYTHON.md). Each chapter runs them with `./bench.sh`, `./bench.sh --kotlin`, `./bench.sh --python` or `./bench.sh --rust`; `./bench.sh --compare` prints a Rust vs C++ table.
 
-Code style: Google style guides (Android style for Kotlin), see [STYLE.md](STYLE.md). Chapters are converted one at a time; a converted chapter has a `check_style.sh`.
+Code style: Google style guides (Android style for Kotlin; rustfmt and clippy for Rust, which has no Google guide), see [STYLE.md](STYLE.md). Chapters are converted one at a time; a converted chapter has a `check_style.sh`.
