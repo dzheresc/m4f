@@ -30,9 +30,23 @@ fun covariance(k1: List<Double>, k2: List<Double>, p: List<Double>): Double {
 /** Standard deviation of the return [k]. */
 fun stdDev(k: List<Double>, p: List<Double>): Double = sqrt(covariance(k, k, p))
 
-/** Correlation coefficient rho_12. */
-fun correlation(k1: List<Double>, k2: List<Double>, p: List<Double>): Double =
-    covariance(k1, k2, p) / (stdDev(k1, p) * stdDev(k2, p))
+/**
+ * Correlation coefficient rho_12. One pass for the three second moments; same arithmetic as
+ * covariance(k1, k2, p) / (stdDev(k1, p) * stdDev(k2, p)).
+ */
+fun correlation(k1: List<Double>, k2: List<Double>, p: List<Double>): Double {
+    val m1 = mean(k1, p)
+    val m2 = mean(k2, p)
+    var cov = 0.0
+    var var1 = 0.0
+    var var2 = 0.0
+    for (i in k1.indices) {
+        cov += p[i] * (k1[i] - m1) * (k2[i] - m2)
+        var1 += p[i] * (k1[i] - m1) * (k1[i] - m1)
+        var2 += p[i] * (k2[i] - m2) * (k2[i] - m2)
+    }
+    return cov / (sqrt(var1) * sqrt(var2))
+}
 
 // Section 5.2.1: two securities, w1 in the first and w2 = 1 - w1 in the second.
 

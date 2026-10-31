@@ -1,6 +1,7 @@
 package m4f.ch05
 
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -50,6 +51,31 @@ class Ch05Test {
             for (j in 0 until 3) {
                 val column = listOf(covInv[0][j], covInv[1][j], covInv[2][j])
                 assertNear(if (i == j) 1.0 else 0.0, dot(row, column))
+            }
+        }
+    }
+
+    /**
+     * Cholesky solve against the explicit inverse, on a 40-asset positive definite matrix and on
+     * an indefinite symmetric matrix (which takes the fallback path).
+     */
+    @Test
+    fun solveSymmetricMatchesInverse() {
+        val n = 40
+        // F F^T + D: three factors plus idiosyncratic variance.
+        val spd = List(n) { i ->
+            List(n) { j ->
+                (if (i == j) 0.02 + 0.001 * i else 0.0) +
+                    (1..3).sumOf { f -> 0.01 * cos(f * (i + 1.0)) * cos(f * (j + 1.0)) }
+            }
+        }
+        val indefinite = listOf(listOf(1.0, 2.0, 0.0), listOf(2.0, 1.0, 0.0), listOf(0.0, 0.0, 3.0))
+        for (c in listOf(spd, indefinite)) {
+            val b = List(c.size) { 1.0 + 0.1 * it }
+            val expected = vecMat(b, inverse(c))
+            val x = solveSymmetric(c, listOf(b))[0]
+            for (i in x.indices) {
+                assertTrue(abs(x[i] - expected[i]) / maxOf(1.0, abs(expected[i])) < 1e-9)
             }
         }
     }

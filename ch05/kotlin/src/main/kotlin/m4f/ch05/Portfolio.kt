@@ -31,8 +31,21 @@ fun sum(a: Vec): Double {
     return s
 }
 
-/** v M, for a row vector [v]. */
-fun vecMat(v: Vec, m: Mat): Vec = m[0].indices.map { j -> dot(v, m.indices.map { i -> m[i][j] }) }
+/**
+ * v M, for a row vector [v]. Row by row, so the matrix is read in memory order and no column is
+ * copied; each out[j] still sums v[i] m[i][j] in order of i.
+ */
+fun vecMat(v: Vec, m: Mat): Vec {
+    val out = DoubleArray(m[0].size)
+    for (i in m.indices) {
+        val vi = v[i]
+        val row = m[i]
+        for (j in out.indices) {
+            out[j] += vi * row[j]
+        }
+    }
+    return out.asList()
+}
 
 /** Gauss-Jordan elimination with partial pivoting. */
 fun inverse(m: Mat): Mat {
@@ -54,19 +67,69 @@ fun inverse(m: Mat): Mat {
         val tmp = a[c]
         a[c] = a[pivot]
         a[pivot] = tmp
+        // Columns left of c are already unit columns (exact zeros off the diagonal), so each row
+        // operation starts at column c.
         val d = a[c][c]
-        for (j in 0 until 2 * n) {
+        for (j in c until 2 * n) {
             a[c][j] /= d
         }
         for (r in 0 until n) {
             if (r == c) continue
             val k = a[r][c]
-            for (j in 0 until 2 * n) {
+            if (k == 0.0) continue
+            for (j in c until 2 * n) {
                 a[r][j] -= k * a[c][j]
             }
         }
     }
     return a.map { row -> row.slice(n until 2 * n) }
+}
+
+/**
+ * Solves C x = b for each right-hand side b in [rhs], for a symmetric C. Uses a Cholesky
+ * factorisation C = L L^T (n^3/6 multiply-adds, then n^2 per right-hand side) when C is positive
+ * definite, as a covariance matrix of non-redundant assets is; otherwise falls back to the
+ * explicit inverse. For symmetric C, x = b C^-1 read as a row vector, so this replaces
+ * vecMat(b, inverse(c)) without forming the inverse.
+ */
+fun solveSymmetric(c: Mat, rhs: List<Vec>): List<Vec> {
+    val n = c.size
+    val l = DoubleArray(n * n) // Row-major lower triangle.
+    for (i in 0 until n) {
+        for (j in 0..i) {
+            var sum = c[i][j]
+            for (k in 0 until j) {
+                sum -= l[i * n + k] * l[j * n + k]
+            }
+            if (i == j) {
+                if (!(sum > 0)) {
+                    val inv = inverse(c)
+                    return rhs.map { vecMat(it, inv) }
+                }
+                l[i * n + i] = sqrt(sum)
+            } else {
+                l[i * n + j] = sum / l[j * n + j]
+            }
+        }
+    }
+    return rhs.map { b ->
+        val x = b.toDoubleArray()
+        for (i in 0 until n) { // L z = b.
+            var sum = x[i]
+            for (k in 0 until i) {
+                sum -= l[i * n + k] * x[k]
+            }
+            x[i] = sum / l[i * n + i]
+        }
+        for (i in n - 1 downTo 0) { // L^T x = z.
+            var sum = x[i]
+            for (k in i + 1 until n) {
+                sum -= l[k * n + i] * x[k]
+            }
+            x[i] = sum / l[i * n + i]
+        }
+        x.asList()
+    }
 }
 
 /** c_ij = rho_ij sigma_i sigma_j. */
@@ -85,7 +148,7 @@ fun portfolioStd(w: Vec, cov: Mat): Double = sqrt(dot(vecMat(w, cov), w))
 
 /** w = u C^-1 / (u C^-1 u^T). */
 fun minVariancePortfolio(cov: Mat): Vec {
-    val uCovInv = vecMat(List(cov.size) { 1.0 }, inverse(cov))
+    val uCovInv = solveSymmetric(cov, listOf(List(cov.size) { 1.0 }))[0]
     val s = sum(uCovInv)
     return uCovInv.map { it / s }
 }
@@ -96,9 +159,7 @@ fun minVariancePortfolio(cov: Mat): Vec {
  *     w = ((c - b muV) u C^-1 + (a muV - b) m C^-1) / (a c - b^2)
  */
 fun minVarianceLine(m: Vec, cov: Mat, muV: Double): Vec {
-    val covInv = inverse(cov)
-    val uCovInv = vecMat(List(cov.size) { 1.0 }, covInv)
-    val mCovInv = vecMat(m, covInv)
+    val (uCovInv, mCovInv) = solveSymmetric(cov, listOf(List(cov.size) { 1.0 }, m))
     val a = sum(uCovInv)
     val b = dot(uCovInv, m)
     val c = dot(mCovInv, m)
@@ -110,7 +171,7 @@ fun minVarianceLine(m: Vec, cov: Mat, muV: Double): Vec {
 
 /** Tangency portfolio: w_M = (m - r u) C^-1 / ((m - r u) C^-1 u^T). */
 fun marketPortfolio(m: Vec, cov: Mat, r: Double): Vec {
-    val w = vecMat(m.map { it - r }, inverse(cov))
+    val w = solveSymmetric(cov, listOf(m.map { it - r }))[0]
     val s = sum(w)
     return w.map { it / s }
 }
