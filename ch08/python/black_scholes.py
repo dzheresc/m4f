@@ -100,6 +100,16 @@ def crr_tree_price(
     def payoff(x: float) -> float:
         return max(x - strike, 0.0) if is_call else max(strike - x, 0.0)
 
-    return binomial_pricing.option_tree(
-        s, u, d, r_step, num_steps, payoff, american
-    )[0][0]
+    # The same backward induction as option_tree, keeping one row instead of
+    # the whole tree.
+    q = binomial_pricing.risk_neutral_prob(u, d, r_step)
+    price = binomial_pricing.stock_price_table(s, u, d, num_steps)
+    values = [payoff(price(num_steps, k)) for k in range(num_steps + 1)]
+    for n in range(num_steps - 1, -1, -1):
+        values = [
+            (q * v_up + (1 - q) * v_down) / (1 + r_step)
+            for v_down, v_up in zip(values, values[1:])
+        ]
+        if american:
+            values = [max(v, payoff(price(n, k))) for k, v in enumerate(values)]
+    return values[0]

@@ -6,6 +6,7 @@ import kotlin.math.max
 import kotlin.math.pow
 import kotlin.math.sqrt
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class Ch08Test {
@@ -81,6 +82,32 @@ class Ch08Test {
             optionTree(100.0, 0.1, -0.1, 0.02, 4, call(100.0))[0][0],
             optionTree(100.0, 0.1, -0.1, 0.02, 4, call(100.0), true)[0][0],
         )
+    }
+
+    /** The power tables and the rolling row give the same values exactly. */
+    @Test
+    fun fastTreesMatchDirect() {
+        val price = StockPrices(100.0, 0.03, -0.025, 60)
+        for (n in 0..60) {
+            for (k in 0..n) {
+                assertEquals(stockPrice(100.0, 0.03, -0.025, n, k), price(n, k))
+            }
+        }
+        val tau = 1.5 / 200
+        val u = exp(0.3 * sqrt(tau)) - 1
+        val d = exp(-0.3 * sqrt(tau)) - 1
+        val r = exp(0.05 * tau) - 1
+        for (american in listOf(false, true)) {
+            for (isCall in listOf(false, true)) {
+                val payoff = if (isCall) call(95.0) else put(95.0)
+                val tree = optionTree(100.0, u, d, r, 200, payoff, american)
+                assertEquals((1..201).toList(), tree.map { it.size })
+                assertEquals(
+                    tree[0][0],
+                    crrTreePrice(100.0, 95.0, 0.05, 0.3, 1.5, 200, isCall, american),
+                )
+            }
+        }
     }
 
     @Test

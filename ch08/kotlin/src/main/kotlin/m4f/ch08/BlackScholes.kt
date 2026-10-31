@@ -93,10 +93,18 @@ fun crrTreePrice(
     val u = exp(sigma * sqrt(tau)) - 1
     val d = exp(-sigma * sqrt(tau)) - 1
     val rStep = exp(r * tau) - 1
-    val payoff: Payoff = if (isCall) {
-        { x -> max(x - strike, 0.0) }
-    } else {
-        { x -> max(strike - x, 0.0) }
+    // The same backward induction as optionTree, keeping one row instead of the whole tree and
+    // calling the payoff directly.
+    val q = riskNeutralProb(u, d, rStep)
+    val price = StockPrices(s, u, d, numSteps)
+    fun payoff(x: Double) = if (isCall) max(x - strike, 0.0) else max(strike - x, 0.0)
+    val values = DoubleArray(numSteps + 1) { k -> payoff(price(numSteps, k)) }
+    for (n in numSteps - 1 downTo 0) {
+        for (k in 0..n) {
+            var v = (q * values[k + 1] + (1 - q) * values[k]) / (1 + rStep)
+            if (american) v = max(v, payoff(price(n, k)))
+            values[k] = v
+        }
     }
-    return optionTree(s, u, d, rStep, numSteps, payoff, american)[0][0]
+    return values[0]
 }

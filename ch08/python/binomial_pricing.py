@@ -37,6 +37,23 @@ def one_step_replication(
     return x, y, x * s0 + y
 
 
+def stock_price_table(
+    s0: float, u: float, d: float, num_steps: int
+) -> Callable[[int, int], float]:
+    """price(n, k) = S(0) (1+u)^k (1+d)^(n-k) for 0 <= k <= n <= N.
+
+    Read from two tables of powers built once: the same arithmetic as
+    stock_price without two powers per node.
+    """
+    up = [(1 + u) ** j for j in range(num_steps + 1)]
+    down = [(1 + d) ** j for j in range(num_steps + 1)]
+
+    def price(n: int, k: int) -> float:
+        return s0 * up[k] * down[n - k]
+
+    return price
+
+
 # Sections 8.1.2-8.1.3: backward induction.
 def option_tree(
     s0: float,
@@ -53,21 +70,19 @@ def option_tree(
     the larger of that and the payoff from exercising now.
     """
     q = risk_neutral_prob(u, d, r)
-    values = [
-        [
-            payoff(stock_price(s0, u, d, num_steps, k))
-            for k in range(num_steps + 1)
-        ]
-    ]
+    price = stock_price_table(s0, u, d, num_steps)
+    later = [payoff(price(num_steps, k)) for k in range(num_steps + 1)]
+    values = [later]  # From level N down to level 0.
     for n in range(num_steps - 1, -1, -1):
-        later = values[0]
-        level = []
-        for k in range(n + 1):
-            v = (q * later[k + 1] + (1 - q) * later[k]) / (1 + r)
-            if american:
-                v = max(v, payoff(stock_price(s0, u, d, n, k)))
-            level.append(v)
-        values.insert(0, level)
+        level = [
+            (q * v_up + (1 - q) * v_down) / (1 + r)
+            for v_down, v_up in zip(later, later[1:])
+        ]
+        if american:
+            level = [max(v, payoff(price(n, k))) for k, v in enumerate(level)]
+        values.append(level)
+        later = level
+    values.reverse()
     return values
 
 
@@ -162,12 +177,12 @@ def early_exercise_nodes(
     """Nodes (n, k), n < N, where exercising beats waiting."""
     q = risk_neutral_prob(u, d, r)
     values = option_tree(s0, u, d, r, num_steps, payoff, american=True)
+    price = stock_price_table(s0, u, d, num_steps)
     nodes = []
     for n in range(num_steps):
+        later = values[n + 1]
         for k in range(n + 1):
-            wait = (q * values[n + 1][k + 1] + (1 - q) * values[n + 1][k]) / (
-                1 + r
-            )
-            if payoff(stock_price(s0, u, d, n, k)) > wait:
+            wait = (q * later[k + 1] + (1 - q) * later[k]) / (1 + r)
+            if payoff(price(n, k)) > wait:
                 nodes.append((n, k))
     return nodes
