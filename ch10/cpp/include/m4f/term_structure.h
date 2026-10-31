@@ -17,8 +17,8 @@ inline double YieldRate(double bond_price, double maturity) {
   return -std::log(bond_price) / maturity;
 }
 
-// f(0,T1,T2) = (ln B(0,T1) - ln B(0,T2)) / (T2 - T1); B(0,0) = 1 gives
-// y(0,T2).
+// f(0,T1,T2) = (ln B(0,T1) - ln B(0,T2)) / (T2 - T1), with b1 = B(0,T1),
+// t1 = T1, b2 = B(0,T2), t2 = T2. B(0,0) = 1 gives y(0,T2).
 inline double ForwardRate(double b1, double t1, double b2, double t2) {
   return (std::log(b1) - std::log(b2)) / (t2 - t1);
 }
@@ -52,7 +52,7 @@ inline std::vector<double> PricesFromForwardRates(
 }
 
 // B(t,T) implied by no arbitrage in a deterministic term structure:
-// B(0,T)/B(0,t).
+// B(0,T)/B(0,t), with b_t = B(0,t) and b_maturity = B(0,T).
 inline double ImpliedPrice(double b_t, double b_maturity) {
   return b_maturity / b_t;
 }

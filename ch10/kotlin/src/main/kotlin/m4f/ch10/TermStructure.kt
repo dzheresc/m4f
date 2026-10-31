@@ -10,7 +10,10 @@ import kotlin.math.ln
 /** y(0,T) = -ln B(0,T) / T. */
 fun yieldRate(bondPrice: Double, maturity: Double): Double = -ln(bondPrice) / maturity
 
-/** f(0,T1,T2) = (ln B(0,T1) - ln B(0,T2)) / (T2 - T1); B(0,0) = 1 gives y(0,T2). */
+/**
+ * f(0,T1,T2) = (ln B(0,T1) - ln B(0,T2)) / (T2 - T1), with [price1] = B(0,T1), [maturity1] = T1,
+ * [price2] = B(0,T2), [maturity2] = T2. B(0,0) = 1 gives y(0,T2).
+ */
 fun forwardRate(price1: Double, maturity1: Double, price2: Double, maturity2: Double): Double =
     (ln(price1) - ln(price2)) / (maturity2 - maturity1)
 
@@ -40,7 +43,10 @@ fun pricesFromForwardRates(maturities: List<Double>, forwards: List<Double>): Li
     return out
 }
 
-/** B(t,T) implied by no arbitrage in a deterministic term structure: B(0,T)/B(0,t). */
+/**
+ * B(t,T) implied by no arbitrage in a deterministic term structure: B(0,T)/B(0,t), with [priceT] =
+ * B(0,t) and [priceMaturity] = B(0,T).
+ */
 fun impliedPrice(priceT: Double, priceMaturity: Double): Double = priceMaturity / priceT
 
 /** Price of a coupon bond = sum C_i B(0,t_i), with t_i on the grid. */
