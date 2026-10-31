@@ -1,132 +1,182 @@
-"""Mathematics for Finance (Capinski & Zastawniak), Chapter 1:
-"Introduction: A Simple Market Model" -- the one-step binomial market.
+"""The one-step binomial market of Chapter 1.
+
+Mathematics for Finance (Capinski & Zastawniak), Chapter 1:
+"Introduction: A Simple Market Model".
 
 Two assets, two time instants t = 0, 1:
   risk-free bond  A(0) -> A(1)                     (return r)
   risky stock     S(0) -> S^u(1) with prob. p      (return u)
                         S^d(1) with prob. 1 - p    (return d)
 A portfolio (x, y) holds x shares and y bonds; negative = short / borrowed.
+
+Names follow the book's notation (Google Python style guide, section 3.16.5),
+lower-cased: a0 = A(0), a1 = A(1), s0 = S(0), s_up = S^u(1), s_down = S^d(1),
+and p, r, u, d, x, y as in the book.
 """
+
 from __future__ import annotations
 
+import dataclasses
+import enum
 import math
-from dataclasses import dataclass
-from enum import Enum
 
 
-class State(Enum):
+class State(enum.Enum):
     UP = "up"
     DOWN = "down"
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Portfolio:
-    x: float  # shares of stock
-    y: float  # units of bond
+    """A holding of x shares of stock and y units of bond."""
+
+    x: float
+    y: float
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class OneStepMarket:
-    A0: float
-    A1: float
-    S0: float
-    Su: float
-    Sd: float
+    """Bond A(0) -> A(1) and stock S(0) -> S^u(1) | S^d(1) with prob. p.
+
+    Raises:
+        ValueError: if a price is not positive, s_up <= s_down, or p is not in
+            (0, 1).
+    """
+
+    a0: float
+    a1: float
+    s0: float
+    s_up: float
+    s_down: float
     p: float
 
     def __post_init__(self) -> None:
-        if not (self.A0 > 0 and self.A1 > 0 and self.S0 > 0 and 0 < self.Sd < self.Su):
+        if not (
+            self.a0 > 0
+            and self.a1 > 0
+            and self.s0 > 0
+            and 0 < self.s_down < self.s_up
+        ):
             raise ValueError("require positive prices and S^u(1) > S^d(1)")
         if not 0 < self.p < 1:
             raise ValueError("require 0 < p < 1")
 
-    def S1(self, s: State) -> float:
-        return self.Su if s is State.UP else self.Sd
+    def s1(self, s: State) -> float:
+        return self.s_up if s is State.UP else self.s_down
 
-    # Returns K = (P(1) - P(0)) / P(0)
     @property
     def r(self) -> float:
-        return (self.A1 - self.A0) / self.A0
+        """Bond return K_A = (A(1) - A(0)) / A(0)."""
+        return (self.a1 - self.a0) / self.a0
 
     @property
     def u(self) -> float:
-        return (self.Su - self.S0) / self.S0
+        """Stock return in the up state."""
+        return (self.s_up - self.s0) / self.s0
 
     @property
     def d(self) -> float:
-        return (self.Sd - self.S0) / self.S0
+        """Stock return in the down state."""
+        return (self.s_down - self.s0) / self.s0
 
-    # Theorem: no arbitrage  <=>  d < r < u
     @property
     def is_arbitrage_free(self) -> bool:
+        """Theorem: no arbitrage <=> d < r < u."""
         return self.d < self.r < self.u
 
-    # Risk-neutral probability p* = (r - d) / (u - d); makes E*[S(1)] = (1+r) S(0)
     @property
     def risk_neutral_prob(self) -> float:
+        """p* = (r - d) / (u - d); makes E*[S(1)] = (1 + r) S(0)."""
         return (self.r - self.d) / (self.u - self.d)
 
     def split(self, budget: float, w: float) -> Portfolio:
-        """Portfolio investing `budget` with fraction `w` in stock, the rest in bonds."""
-        return Portfolio(w * budget / self.S0, (1 - w) * budget / self.A0)
+        """Invests `budget` with fraction `w` in stock, the rest in bonds."""
+        return Portfolio(w * budget / self.s0, (1 - w) * budget / self.a0)
 
-    def value0(self, P: Portfolio) -> float:
-        return P.x * self.S0 + P.y * self.A0
+    def value0(self, portfolio: Portfolio) -> float:
+        return portfolio.x * self.s0 + portfolio.y * self.a0
 
-    def value1(self, P: Portfolio, s: State) -> float:
-        return P.x * self.S1(s) + P.y * self.A1
+    def value1(self, portfolio: Portfolio, s: State) -> float:
+        return portfolio.x * self.s1(s) + portfolio.y * self.a1
 
-    def portfolio_return(self, P: Portfolio, s: State) -> float:
-        return (self.value1(P, s) - self.value0(P)) / self.value0(P)
+    def portfolio_return(self, portfolio: Portfolio, s: State) -> float:
+        v0 = self.value0(portfolio)
+        return (self.value1(portfolio, s) - v0) / v0
 
-    # Expectation and standard deviation of a two-point random variable
-    # taking values `up` (prob p) and `down` (prob 1-p).
     def expect(self, up: float, down: float) -> float:
+        """Expectation of a variable equal to `up` (prob. p) or `down`."""
         return self.p * up + (1 - self.p) * down
 
     def stddev(self, up: float, down: float) -> float:
+        """Standard deviation of a variable equal to `up` or `down`."""
         return math.sqrt(self.p * (1 - self.p)) * abs(up - down)
 
-    # Replicating portfolio for a derivative paying Du (up) / Dd (down) at t=1:
-    #   x S^u(1) + y A(1) = Du,   x S^d(1) + y A(1) = Dd
-    def replicate(self, Du: float, Dd: float) -> Portfolio:
-        x = (Du - Dd) / (self.Su - self.Sd)
-        return Portfolio(x, (Du - x * self.Su) / self.A1)
+    def replicate(self, d_up: float, d_down: float) -> Portfolio:
+        """Replicates a derivative paying `d_up` / `d_down` at t=1.
 
-    # No-arbitrage price D(0) = value of the replicating portfolio ...
-    def price(self, Du: float, Dd: float) -> float:
-        return self.value0(self.replicate(Du, Dd))
+        Solves x S^u(1) + y A(1) = D^u and x S^d(1) + y A(1) = D^d.
 
-    # ... which equals the discounted risk-neutral expectation.
-    def risk_neutral_price(self, Du: float, Dd: float) -> float:
+        Args:
+            d_up: Payoff D^u in the up state.
+            d_down: Payoff D^d in the down state.
+
+        Returns:
+            The replicating portfolio (x, y).
+        """
+        x = (d_up - d_down) / (self.s_up - self.s_down)
+        return Portfolio(x, (d_up - x * self.s_up) / self.a1)
+
+    def price(self, d_up: float, d_down: float) -> float:
+        """No-arbitrage price D(0) = value of the replicating portfolio."""
+        return self.value0(self.replicate(d_up, d_down))
+
+    def risk_neutral_price(self, d_up: float, d_down: float) -> float:
+        """D(0) as the discounted risk-neutral expectation; equals price()."""
         q = self.risk_neutral_prob
-        return (q * Du + (1 - q) * Dd) / (1 + self.r)
+        return (q * d_up + (1 - q) * d_down) / (1 + self.r)
 
-    # Forward price for delivery at t=1: F = S(0) (1 + r)
     @property
     def forward_price(self) -> float:
-        return self.S0 * (1 + self.r)
+        """Forward price for delivery at t=1: F = S(0) (1 + r)."""
+        return self.s0 * (1 + self.r)
 
     def arbitrage(self) -> Portfolio | None:
-        """If the model admits arbitrage, a portfolio with V(0)=0, V(1)>=0 and
-        V(1)>0 in some state, using one share; otherwise None."""
+        """Builds an arbitrage strategy if the model admits one.
+
+        Returns:
+            A portfolio with V(0) = 0, V(1) >= 0 and V(1) > 0 in some state,
+            using one share; None if the market is arbitrage-free.
+        """
         if self.r >= self.u:
-            return Portfolio(-1.0, self.S0 / self.A0)  # short stock, buy bonds
+            # Short one share and buy bonds with the proceeds.
+            return Portfolio(-1.0, self.s0 / self.a0)
         if self.r <= self.d:
-            return Portfolio(1.0, -self.S0 / self.A0)  # borrow, buy stock
+            # Borrow to buy one share.
+            return Portfolio(1.0, -self.s0 / self.a0)
         return None
 
 
-def call_payoff(S: float, X: float) -> float:
-    return S - X if S > X else 0.0
+def call_payoff(s: float, strike: float) -> float:
+    return s - strike if s > strike else 0.0
 
 
-def put_payoff(S: float, X: float) -> float:
-    return X - S if X > S else 0.0
+def put_payoff(s: float, strike: float) -> float:
+    return strike - s if strike > s else 0.0
 
 
-def hedged_purchase_cost(m: OneStepMarket, X: float, n: float, s: State) -> float:
-    """Section 1.7: cost at t=1 of buying one share for an investor who at t=0
-    borrowed to buy n calls with strike X: S(1) - n C(1) + n C(0)(1+r)."""
-    C0 = m.price(call_payoff(m.Su, X), call_payoff(m.Sd, X))
-    return m.S1(s) - n * call_payoff(m.S1(s), X) + n * C0 * (1 + m.r)
+def hedged_purchase_cost(
+    market: OneStepMarket, strike: float, num_calls: float, s: State
+) -> float:
+    """Section 1.7: cost at t=1 of buying one share, hedged with calls.
+
+    The investor borrowed at t=0 to buy `num_calls` calls with strike
+    `strike`, so the cost is S(1) - n C(1) + n C(0) (1 + r).
+    """
+    call0 = market.price(
+        call_payoff(market.s_up, strike), call_payoff(market.s_down, strike)
+    )
+    return (
+        market.s1(s)
+        - num_calls * call_payoff(market.s1(s), strike)
+        + num_calls * call0 * (1 + market.r)
+    )
