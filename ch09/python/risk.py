@@ -166,7 +166,7 @@ def unhedged_holding(shares: float) -> Strategy:
     return Strategy("stock", shares, 0.0, [])
 
 
-# Section 9.3.1: spend capital v0 on one instrument.
+# Section 9.3.1: spend capital v0 on one instrument at stock price s0 = S(0).
 def all_in_stock(v0: float, s0: float) -> Strategy:
     return Strategy("stock", v0 / s0, 0.0, [])
 
@@ -194,6 +194,10 @@ def bull_spread(
     sigma: float,
     maturity: float,
 ) -> Strategy:
+    """Buys calls at strike x1 and writes as many at x2 (x1 < x2).
+
+    Buys as many spreads as v0 pays for.
+    """
     n = v0 / (
         black_scholes.bs_price(s0, x1, r, sigma, maturity, True)
         - black_scholes.bs_price(s0, x2, r, sigma, maturity, True)
@@ -204,6 +208,7 @@ def bull_spread(
 
 
 def mix(name: str, a: Strategy, wa: float, b: Strategy, wb: float) -> Strategy:
+    """Holds strategy `a` scaled by `wa` plus strategy `b` scaled by `wb`."""
     legs = [OptionLeg(leg.qty * wa, leg.strike, leg.is_call) for leg in a.legs]
     legs += [OptionLeg(leg.qty * wb, leg.strike, leg.is_call) for leg in b.legs]
     return Strategy(

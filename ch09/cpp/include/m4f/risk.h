@@ -150,7 +150,7 @@ inline Strategy UnhedgedHolding(double shares) {
   return {"stock", shares, 0.0, {}};
 }
 
-// Section 9.3.1: spend capital v0 on one instrument.
+// Section 9.3.1: spend capital v0 on one instrument at stock price s0 = S(0).
 inline Strategy AllInStock(double v0, double s0) {
   return {"stock", v0 / s0, 0.0, {}};
 }
@@ -162,6 +162,8 @@ inline Strategy AllInCalls(const std::string& name, double v0, double s0,
   return {name, 0.0, 0.0, {{n, strike, true}}};
 }
 
+// Buys calls at strike x1 and writes as many at x2 (x1 < x2), as many as v0
+// pays for.
 inline Strategy BullSpread(const std::string& name, double v0, double s0,
                            double x1, double x2, double r, double sigma,
                            double maturity) {
@@ -170,6 +172,7 @@ inline Strategy BullSpread(const std::string& name, double v0, double s0,
   return {name, 0.0, 0.0, {{n, x1, true}, {-n, x2, true}}};
 }
 
+// Holds strategy `a` scaled by `wa` plus strategy `b` scaled by `wb`.
 inline Strategy Mix(const std::string& name, const Strategy& a, double wa,
                     const Strategy& b, double wb) {
   std::vector<OptionLeg> legs;
