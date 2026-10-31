@@ -48,3 +48,29 @@ Portfolio benchmarks run at n = 3, 10, 50 and 200 assets.
   each call recomputes both means); a single pass would be about 3x cheaper.
 - `PrintReport` only uses 2- and 3-asset examples, so none of this shows in
   the chapter's output.
+
+## After: row-wise VecMat, Cholesky solves, one-pass Correlation
+
+`VecMat` accumulates row by row without allocating; each output still sums
+in the same order, so results are bit-identical. The minimum variance
+portfolio, the minimum variance line and the market portfolio solve `C x = b`
+with a Cholesky factorisation (`SolveSymmetric`, falling back to the inverse
+if C is not positive definite) instead of inverting C. `Inverse` skips the
+columns Gauss-Jordan has already cleared (bit-identical), and `Correlation`
+makes one pass. New tests check `SolveSymmetric` against the inverse on a
+40-asset positive definite matrix and an indefinite one, and the report is
+byte-identical.
+
+| Benchmark | Time before | Time after | Ir before | Ir after | Ir ratio |
+|---|---:|---:|---:|---:|---:|
+| `BM_VecMat/3` | 221 ns | 24 ns | 2,895 | 316 | 9.2x |
+| `BM_VecMat/200` | 112 us | 11 us | 1,269,144 | 164,137 | 7.7x |
+| `BM_PortfolioStd/200` | 131 us | 13 us | 1,266,011 | 164,806 | 7.7x |
+| `BM_Beta/200` | 108 us | 11 us | 1,267,560 | 165,751 | 7.6x |
+| `BM_Inverse/200` | 4.7 ms | 4.0 ms | 65,183,274 | 49,599,300 | 1.3x |
+| `BM_MinVariancePortfolio/3` | 403 ns | 127 ns | 5,665 | 1,227 | 4.6x |
+| `BM_MinVariancePortfolio/200` | 3.8 ms | 0.64 ms | 66,458,312 | 6,977,037 | 9.5x |
+| `BM_MinVarianceLine/200` | 4.6 ms | 0.64 ms | 67,736,906 | 7,204,080 | 9.4x |
+| `BM_MarketPortfolio/200` | 4.9 ms | 0.63 ms | 66,468,598 | 6,981,313 | 9.5x |
+| `BM_Correlation/10000` | 55 us | 22 us | 545,145 | 250,076 | 2.2x |
+| `BM_PrintReport` | 16 us | 13 us | 220,540 | 167,573 | 1.3x |

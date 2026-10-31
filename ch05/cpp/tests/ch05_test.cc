@@ -87,6 +87,37 @@ void TestInverse(Checker& t) {
   }
 }
 
+// C++ only: the Cholesky solve against the explicit inverse, on a 40-asset
+// positive definite matrix and on an indefinite symmetric matrix (which takes
+// the fallback path).
+void TestSolveSymmetric(Checker& t) {
+  constexpr std::size_t kN = 40;
+  // F F^T + D: three factors plus idiosyncratic variance.
+  Mat spd(kN, Vec(kN));
+  for (std::size_t i = 0; i < kN; ++i) {
+    for (std::size_t j = 0; j < kN; ++j) {
+      double sum = i == j ? 0.02 + 0.001 * i : 0.0;
+      for (int f = 1; f <= 3; ++f) {
+        sum += 0.01 * std::cos(f * (i + 1.0)) * std::cos(f * (j + 1.0));
+      }
+      spd[i][j] = sum;
+    }
+  }
+  const Mat indefinite = {{1, 2, 0}, {2, 1, 0}, {0, 0, 3}};
+  for (const Mat& c : {spd, indefinite}) {
+    Vec b(c.size());
+    for (std::size_t i = 0; i < b.size(); ++i) b[i] = 1.0 + 0.1 * i;
+    const Vec expected = VecMat(b, Inverse(c));
+    const Vec x = SolveSymmetric(c, {b})[0];
+    double worst = 0.0;
+    for (std::size_t i = 0; i < x.size(); ++i) {
+      worst = std::fmax(worst, std::abs(x[i] - expected[i]) /
+                                   std::fmax(1.0, std::abs(expected[i])));
+    }
+    t.Expect(worst < 1e-9, "SolveSymmetric matches the inverse");
+  }
+}
+
 // Section 5.3.2.
 void TestEfficientFrontier(Checker& t) {
   const Mat c = MarketCovariance();
@@ -130,6 +161,7 @@ int RunAllTests() {
   TestScenarios(t);
   TestMinVarianceWeight(t);
   TestInverse(t);
+  TestSolveSymmetric(t);
   TestEfficientFrontier(t);
   TestCapm(t);
   if (t.failures() == 0) std::printf("All ch05 tests passed\n");

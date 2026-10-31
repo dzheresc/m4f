@@ -34,7 +34,19 @@ inline double StdDev(const Vec& k, const Vec& p) {
 }
 
 inline double Correlation(const Vec& k1, const Vec& k2, const Vec& p) {
-  return Covariance(k1, k2, p) / (StdDev(k1, p) * StdDev(k2, p));
+  // One pass for the three second moments; same arithmetic as
+  // Covariance(k1, k2, p) / (StdDev(k1, p) * StdDev(k2, p)).
+  const double m1 = Mean(k1, p);
+  const double m2 = Mean(k2, p);
+  double cov = 0.0;
+  double var1 = 0.0;
+  double var2 = 0.0;
+  for (std::size_t i = 0; i < k1.size(); ++i) {
+    cov += p[i] * (k1[i] - m1) * (k2[i] - m2);
+    var1 += p[i] * (k1[i] - m1) * (k1[i] - m1);
+    var2 += p[i] * (k2[i] - m2) * (k2[i] - m2);
+  }
+  return cov / (std::sqrt(var1) * std::sqrt(var2));
 }
 
 // Section 5.2.1: two securities, w1 in the first and w2 = 1 - w1 in the
