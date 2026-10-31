@@ -71,7 +71,18 @@ fun optionTree(
     numSteps: Int,
     payoff: Payoff,
     american: Boolean = false,
-): Tree {
+): Tree = optionTreeRows(s0, u, d, r, numSteps, payoff, american).map { it.asList() }
+
+/** The rows of [optionTree] as unboxed arrays. */
+private fun optionTreeRows(
+    s0: Double,
+    u: Double,
+    d: Double,
+    r: Double,
+    numSteps: Int,
+    payoff: Payoff,
+    american: Boolean,
+): Array<DoubleArray> {
     val q = riskNeutralProb(u, d, r)
     val price = StockPrices(s0, u, d, numSteps)
     val rows = arrayOfNulls<DoubleArray>(numSteps + 1)
@@ -85,7 +96,7 @@ fun optionTree(
         }
         rows[n] = later
     }
-    return rows.map { it!!.asList() }
+    return rows.requireNoNulls()
 }
 
 /**
@@ -188,7 +199,7 @@ fun earlyExerciseNodes(
     payoff: Payoff,
 ): List<Pair<Int, Int>> {
     val q = riskNeutralProb(u, d, r)
-    val values = optionTree(s0, u, d, r, numSteps, payoff, true)
+    val values = optionTreeRows(s0, u, d, r, numSteps, payoff, true)
     val price = StockPrices(s0, u, d, numSteps)
     val nodes = mutableListOf<Pair<Int, Int>>()
     for (n in 0 until numSteps) {
