@@ -5,6 +5,11 @@
 // scenario returns K_i, and a money market returning r. It admits no arbitrage
 // exactly when a risk-neutral probability exists: q_i > 0 with
 // sum q_i K_i = r, which happens exactly when min K_i < r < max K_i.
+//
+// Names follow the book, lower-cased: s0 = S(0) and a0 = A(0) are the stock
+// and money market prices at time 0, v0 = V(0) is the initial wealth, u and d
+// are the up and down returns of the binomial tree, p is the probability of
+// an up move, and x, y are the numbers of shares and money market units held.
 #ifndef M4F_CH04_NO_ARBITRAGE_H_
 #define M4F_CH04_NO_ARBITRAGE_H_
 

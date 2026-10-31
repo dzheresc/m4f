@@ -78,7 +78,10 @@ data class RebalanceStep(
     val value: Double,
 )
 
-/** Dynamic delta hedging: re-hedge at each price on the path (prices[0] at t=0). */
+/**
+ * Dynamic delta hedging: re-hedge at each price on the path ([prices][0] at t=0, then one price
+ * every [dt] years).
+ */
 fun rebalancePath(
     options: List<Position>,
     prices: List<Double>,

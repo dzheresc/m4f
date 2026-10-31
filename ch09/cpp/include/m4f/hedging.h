@@ -88,7 +88,7 @@ struct RebalanceStep {
 };
 
 // Dynamic delta hedging: re-hedge at each price on the path (prices[0] at
-// t=0).
+// t=0, then one price every `dt` years).
 inline std::vector<RebalanceStep> RebalancePath(
     const std::vector<Position>& options, const std::vector<double>& prices,
     double dt, double r, double sigma) {

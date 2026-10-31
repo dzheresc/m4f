@@ -87,7 +87,8 @@ inline double LogReturn(const Bond& bond, double y0, double y, double t) {
 
 // Section 10.1.3: portfolios of two bonds. The duration of a portfolio is the
 // value-weighted average of durations. Weights w1 + w2 = 1 with
-// w1 D1 + w2 D2 = D_target.
+// w1 D1 + w2 D2 = D_target, where d1 = D1 and d2 = D2 are the durations of the
+// two bonds.
 inline std::pair<double, double> ImmunisingWeights(double d1, double d2,
                                                    double d_target) {
   const double w1 = (d_target - d2) / (d1 - d2);
@@ -100,6 +101,7 @@ struct Portfolio {
   double cash;
 };
 
+// Value at time t and yield y of portfolio p holding bonds b1 and b2.
 inline double PortfolioValue(const Portfolio& p, const Bond& b1, const Bond& b2,
                              double y, double t) {
   return p.q1 * Price(b1, y, t) + p.q2 * Price(b2, y, t) + p.cash;
@@ -122,18 +124,18 @@ inline Portfolio Immunise(double v, const Bond& b1, const Bond& b2, double y,
 }
 
 struct HedgeStep {
-  double t;
-  double y;
-  double value;
-  double q1;
-  double q2;
+  double t;         // Time in years.
+  double y;         // Yield at t.
+  double value;     // Portfolio value at t.
+  double q1;        // Number of bond 1 after rebalancing.
+  double q2;        // Number of bond 2 after rebalancing.
   double duration;  // Of the rebalanced portfolio.
 };
 
 // Section 10.1.4: along a path of (t, y) with t[0] = 0, hold the two bonds,
 // collect coupons into cash (accruing at the yield of the interval), and, if
 // `rebalance`, re-immunise at each step so the duration equals the remaining
-// horizon.
+// horizon. v0 is the capital invested at t = 0.
 inline std::vector<HedgeStep> DynamicHedge(
     double v0, const Bond& b1, const Bond& b2, double horizon,
     const std::vector<std::pair<double, double>>& path, bool rebalance = true) {

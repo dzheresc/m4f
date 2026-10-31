@@ -121,7 +121,7 @@ fun putHedgedHolding(name: String, shares: Double, strike: Double, h: Double = 1
 /** A plain holding of [shares] shares. */
 fun unhedgedHolding(shares: Double): Strategy = Strategy("stock", shares, 0.0, emptyList())
 
-/** Section 9.3.1: spend capital [v0] on the stock. */
+/** Section 9.3.1: spend capital [v0] on the stock at price [s0] = S(0). */
 fun allInStock(v0: Double, s0: Double): Strategy = Strategy("stock", v0 / s0, 0.0, emptyList())
 
 /** Spend capital [v0] on calls. */

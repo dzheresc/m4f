@@ -30,7 +30,7 @@ def yield_rate(bond_price: float, maturity: float) -> float:
 def forward_rate(b1: float, t1: float, b2: float, t2: float) -> float:
     """f(0,T1,T2) = (ln B(0,T1) - ln B(0,T2)) / (T2 - T1).
 
-    B(0,0) = 1 gives y(0,T2).
+    b1 = B(0,T1), t1 = T1, b2 = B(0,T2), t2 = T2. B(0,0) = 1 gives y(0,T2).
     """
     return (math.log(b1) - math.log(b2)) / (t2 - t1)
 
@@ -59,7 +59,10 @@ def prices_from_forward_rates(
 
 
 def implied_price(b_t: float, b_maturity: float) -> float:
-    """B(t,T) = B(0,T)/B(0,t), by no arbitrage in a deterministic structure."""
+    """B(t,T) = B(0,T)/B(0,t), by no arbitrage in a deterministic structure.
+
+    b_t = B(0,t) and b_maturity = B(0,T).
+    """
     return b_maturity / b_t
 
 

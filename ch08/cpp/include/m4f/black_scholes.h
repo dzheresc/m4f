@@ -1,6 +1,8 @@
 // Section 8.3: the Black-Scholes formula, and the Cox-Ross-Rubinstein tree
 // that converges to it (1+u = e^(sigma sqrt(tau)), 1+d = e^(-sigma sqrt(tau)),
-// 1+r = e^(r tau), tau = T/N). r is the continuously compounded rate.
+// 1+r = e^(r tau), tau = T/N). r is the continuously compounded rate, `s` the
+// stock price now, `strike` the strike X, `sigma` the volatility and
+// `maturity` the time T to expiry in years.
 #ifndef M4F_CH08_BLACK_SCHOLES_H_
 #define M4F_CH08_BLACK_SCHOLES_H_
 

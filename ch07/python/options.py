@@ -2,7 +2,8 @@
 
 Continuous compounding at rate r; `maturity` is the time T to expiry in years
 and `strike` the strike X. `div` is the present value of dividends paid
-before T.
+before T. `s0` is the stock price S(0) now and `s` the stock price S(T) at
+expiry.
 """
 
 import math
@@ -87,7 +88,8 @@ def butterfly_gap(
     """Convexity in X: C(X2) <= l C(X1) + (1-l) C(X3), l = (X3-X2)/(X3-X1).
 
     A positive return value is the arbitrage profit from writing the middle
-    option and buying the wings.
+    option and buying the wings. c1, c2, c3 are the call prices at strikes
+    x1, x2, x3.
     """
     lam = (x3 - x2) / (x3 - x1)
     return c2 - (lam * c1 + (1 - lam) * c3)

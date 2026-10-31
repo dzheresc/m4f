@@ -1,7 +1,8 @@
 // Sections 7.1-7.3: option payoffs, put-call parity and bounds on option
 // prices. Continuous compounding at rate r; `maturity` is the time T to expiry
 // in years and `strike` the strike X. `div` is the present value of dividends
-// paid before T.
+// paid before T. `s0` is the stock price S(0) now and `s` the stock price
+// S(T) at expiry.
 #ifndef M4F_CH07_OPTIONS_H_
 #define M4F_CH07_OPTIONS_H_
 
@@ -69,6 +70,7 @@ inline Bounds AmericanParityBounds(double s0, double strike, double r,
 // Section 7.4.1: dependence on the strike, for X1 < X2 < X3. Convexity in X:
 // C(X2) <= l C(X1) + (1-l) C(X3), l = (X3-X2)/(X3-X1). A positive return value
 // is the arbitrage profit from writing the middle option and buying the wings.
+// c1, c2, c3 are the call prices at strikes x1, x2, x3.
 inline double ButterflyGap(double c1, double c2, double c3, double x1,
                            double x2, double x3) {
   const double lam = (x3 - x2) / (x3 - x1);

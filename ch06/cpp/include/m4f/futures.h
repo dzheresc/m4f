@@ -54,7 +54,9 @@ inline std::vector<MarginDay> MarginAccount(const Vec& prices, double size,
 }
 
 // Section 6.2.2: hedging with futures. Selling h futures per unit of spot
-// exposure turns a spot change dS into dS - h df.
+// exposure turns a spot change dS into dS - h df. In scenario i, with
+// probability p[i], the spot price changes by ds[i] and the futures price by
+// df[i].
 // h* = Cov(dS, df) / Var(df).
 inline double MinVarianceHedgeRatio(const Vec& ds, const Vec& df,
                                     const Vec& p) {

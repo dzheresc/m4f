@@ -82,7 +82,8 @@ def log_return(bond: Bond, y0: float, y: float, t: float) -> float:
 
 # Section 10.1.3: portfolios of two bonds. The duration of a portfolio is the
 # value-weighted average of durations. Weights w1 + w2 = 1 with
-# w1 D1 + w2 D2 = D_target.
+# w1 D1 + w2 D2 = D_target, where d1 = D1 and d2 = D2 are the durations of the
+# two bonds.
 def immunising_weights(
     d1: float, d2: float, d_target: float
 ) -> tuple[float, float]:
@@ -108,6 +109,7 @@ class Portfolio:
 def portfolio_value(
     p: Portfolio, b1: Bond, b2: Bond, y: float, t: float
 ) -> float:
+    """Value of p at time t when both bonds are priced at yield y."""
     return p.q1 * price(b1, y, t) + p.q2 * price(b2, y, t) + p.cash
 
 
@@ -154,7 +156,8 @@ def dynamic_hedge(
 
     Holds the two bonds, collects coupons into cash (accruing at the yield of
     the interval), and, if `rebalance`, re-immunises at each step so the
-    duration equals the remaining horizon.
+    duration equals the remaining horizon. v0 is the capital invested at
+    t = 0.
     """
     t0, y0 = path[0]
     p = immunise(v0, b1, b2, y0, t0, horizon)

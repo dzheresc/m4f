@@ -2,7 +2,8 @@
 
 The Cox-Ross-Rubinstein tree has 1+u = e^(sigma sqrt(tau)),
 1+d = e^(-sigma sqrt(tau)), 1+r = e^(r tau), tau = T/N. r is the continuously
-compounded rate.
+compounded rate, `s` the stock price now, `strike` the strike X, `sigma` the
+volatility and `maturity` the time T to expiry in years.
 """
 
 import math

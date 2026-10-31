@@ -146,7 +146,10 @@ def rebalance_path(
     r: float,
     sigma: float,
 ) -> list[RebalanceStep]:
-    """Dynamic delta hedging: re-hedge at each price (prices[0] at t=0)."""
+    """Dynamic delta hedging: re-hedge at each price on the path.
+
+    prices[0] is at t=0, then one price every `dt` years.
+    """
     steps: list[RebalanceStep] = []
     h = delta_hedge(options, prices[0], r, sigma)
     shares, money = h.shares, h.money

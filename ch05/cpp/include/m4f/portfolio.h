@@ -75,8 +75,7 @@ inline Mat Inverse(const Mat& m) {
   return inv;
 }
 
-// c_ij = rho_ij sigma_i sigma_j.
-// Solves C x = b for each right-hand side b, for a symmetric C. Uses a
+// Solves C x = b for each right-hand side b in `rhs`, for a symmetric C. Uses a
 // Cholesky factorisation C = L L^T (n^3/6 multiply-adds, then n^2 per right-
 // hand side) when C is positive definite, as a covariance matrix of
 // non-redundant assets is; otherwise falls back to the explicit inverse. For
@@ -121,6 +120,8 @@ inline std::vector<Vec> SolveSymmetric(const Mat& c, std::vector<Vec> rhs) {
   return rhs;
 }
 
+// c_ij = rho_ij sigma_i sigma_j, from the standard deviations `sigma` and the
+// correlation matrix `rho`.
 inline Mat CovarianceMatrix(const Vec& sigma, const Mat& rho) {
   const std::size_t n = sigma.size();
   Mat c(n, Vec(n));

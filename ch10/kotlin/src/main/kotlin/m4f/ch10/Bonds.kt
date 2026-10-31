@@ -68,7 +68,8 @@ fun logReturn(bond: Bond, y0: Double, y: Double, t: Double): Double =
 
 /**
  * 10.1.3 Portfolios of two bonds: the duration of a portfolio is the value-weighted average of
- * durations. Returns weights w1 + w2 = 1 with w1 D1 + w2 D2 = [targetDuration].
+ * durations. Returns weights w1 + w2 = 1 with w1 D1 + w2 D2 = [targetDuration], where D1 and D2
+ * are the durations of the two bonds.
  */
 fun immunisingWeights(
     duration1: Double,
@@ -124,7 +125,7 @@ data class HedgeStep(
 /**
  * 10.1.4: along a [path] of (t, y) with t[0] = 0, hold the two bonds, collect coupons into cash
  * (accruing at the yield of the interval), and, if [rebalance], re-immunise at each step so the
- * duration equals the remaining horizon.
+ * duration equals the remaining horizon. [v0] is the capital invested at t = 0.
  */
 fun dynamicHedge(
     value0: Double,
