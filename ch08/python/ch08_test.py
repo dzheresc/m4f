@@ -114,12 +114,15 @@ class LibraryTest(unittest.TestCase):
     def test_fast_trees_match_direct(self) -> None:
         """The power tables and rolling rows give the same values exactly."""
         u, d, r = 0.03, -0.025, 0.004
-        price = binomial_pricing.stock_price_table(100, u, d, 60)
+        prices = binomial_pricing.stock_price_rows(100, u, d, 60)
         for n in range(61):
-            for k in range(n + 1):
-                self.assertEqual(
-                    price(n, k), binomial_pricing.stock_price(100, u, d, n, k)
-                )
+            self.assertEqual(
+                prices(n),
+                [
+                    binomial_pricing.stock_price(100, u, d, n, k)
+                    for k in range(n + 1)
+                ],
+            )
         for american in (False, True):
             for is_call in (False, True):
                 tau = 1.5 / 200
