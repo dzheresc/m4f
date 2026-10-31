@@ -7,10 +7,11 @@ parallel implementations with the same API, and all three print the same output 
 
 ```
 ch06/
-  cpp/      C++20, CMake        include/m4f/{forwards,futures}.hpp (header-only), src/report.cpp, tests/
+  cpp/      C++20, CMake        include/m4f/{forwards,futures}.h (header-only), src/report.cc, tests/
   kotlin/   Kotlin 2.1, Gradle  src/main/kotlin/m4f/ch06/{Forwards,Futures,Report}.kt, src/test/
-  python/   Python 3.10+        forwards.py, futures.py, ch06.py, test_ch06.py
+  python/   Python 3.10+        forwards.py, futures.py, ch06.py, ch06_test.py
   run_all.sh                    build + test + run all three and diff against expected_output.txt
+  check_style.sh                clang-format, cpplint, pyink, pylint, ktlint (whichever are installed)
 ```
 
 Forwards use continuous compounding, as the chapter does. Futures pricing uses the binomial tree with `r` per step.
@@ -29,5 +30,12 @@ Forwards use continuous compounding, as the chapter does. Futures pricing uses t
 ./run_all.sh
 cmake -S cpp -B cpp/build && cmake --build cpp/build -j && ctest --test-dir cpp/build && cpp/build/ch06
 cd kotlin && ./gradlew test run
-cd python && python3 -m unittest test_ch06 && python3 ch06.py
+cd python && python3 -m unittest ch06_test && python3 ch06.py
 ```
+
+## Code style
+
+The code follows the Google style guides for C++ and Python and the Android Kotlin style guide;
+see [STYLE.md](../STYLE.md). API names in this README are the Kotlin ones: C++ uses PascalCase
+for functions (`riskNeutralProb` is `RiskNeutralProb`) and Python uses snake_case. Run
+`./check_style.sh` to check, or `./check_style.sh --fix` to reformat.

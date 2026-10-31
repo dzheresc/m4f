@@ -1,3 +1,5 @@
 package m4f.ch06
 
-fun main() = print(report())
+fun main() {
+    print(report())
+}
