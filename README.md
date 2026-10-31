@@ -1,6 +1,8 @@
-# Mathematics for Finance: code companion
+# Mathematics for Finance in C++, Kotlin and Python
 
-Code for Capinski & Zastawniak, *Mathematics for Finance*. Each chapter is implemented in C++20 (CMake), Kotlin (Gradle) and Python 3 (standard library), and all three produce the same report.
+Worked code for every chapter of Capiński & Zastawniak, *Mathematics for Finance: An Introduction to Financial Engineering*. Each chapter is implemented three times, in C++20, Kotlin and Python 3, and all three print the same report.
+
+Builds: CMake for C++, Gradle for Kotlin; the Python code uses only the standard library.
 
 | Chapter | Topic |
 |---|---|
