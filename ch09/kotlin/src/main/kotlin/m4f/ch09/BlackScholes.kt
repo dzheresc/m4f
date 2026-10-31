@@ -1,3 +1,6 @@
+// Black-Scholes prices and the Greek parameters (Section 9.1.2).
+// s stock price, strike X, r continuously compounded rate, sigma volatility, maturity T time to
+// expiry. Same normCdf as Chapter 8 (Hart 1968 / G. West).
 package m4f.ch09
 
 import kotlin.math.abs
@@ -6,10 +9,7 @@ import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.sqrt
 
-// Black-Scholes prices and the Greek parameters (Section 9.1.2).
-// S stock price, X strike, r continuously compounded rate, sigma volatility,
-// T time to expiry. Same normCdf as Chapter 8 (Hart 1968 / G. West).
-
+/** Standard normal CDF to double precision. */
 fun normCdf(x: Double): Double {
     val a = abs(x)
     val c: Double
@@ -25,7 +25,7 @@ fun normCdf(x: Double): Double {
             b = b * a + 112.079291497871
             b = b * a + 221.213596169931
             b = b * a + 220.206867912376
-            var cc = e * b
+            val numerator = e * b
             b = 8.83883476483184e-02 * a + 1.75566716318264
             b = b * a + 16.064177579207
             b = b * a + 86.7807322029461
@@ -33,8 +33,7 @@ fun normCdf(x: Double): Double {
             b = b * a + 637.333633378831
             b = b * a + 793.826512519948
             b = b * a + 440.413735824752
-            cc = cc / b
-            c = cc
+            c = numerator / b
         } else {
             b = a + 0.65
             b = a + 4 / b
@@ -47,9 +46,10 @@ fun normCdf(x: Double): Double {
     return if (x > 0) 1 - c else c
 }
 
+/** Standard normal density. */
 fun normPdf(x: Double): Double = exp(-x * x / 2) / 2.506628274631000502
 
-/** Quantile of the standard normal, by bisection on normCdf (0 < p < 1). */
+/** Quantile of the standard normal, by bisection on [normCdf] (0 < p < 1). */
 fun normInv(p: Double): Double {
     var lo = -40.0
     var hi = 40.0
@@ -60,32 +60,68 @@ fun normInv(p: Double): Double {
     return (lo + hi) / 2
 }
 
-fun d1d2(S: Double, X: Double, r: Double, sigma: Double, T: Double): Pair<Double, Double> {
-    val d1 = (ln(S / X) + (r + sigma * sigma / 2) * T) / (sigma * sqrt(T))
-    return Pair(d1, d1 - sigma * sqrt(T))
+/** (d1, d2) of the Black-Scholes formula. */
+fun d1d2(
+    s: Double,
+    strike: Double,
+    r: Double,
+    sigma: Double,
+    maturity: Double,
+): Pair<Double, Double> {
+    val d1 = (ln(s / strike) + (r + sigma * sigma / 2) * maturity) / (sigma * sqrt(maturity))
+    return Pair(d1, d1 - sigma * sqrt(maturity))
 }
 
-fun payoff(S: Double, X: Double, isCall: Boolean): Double = if (isCall) max(S - X, 0.0) else max(X - S, 0.0)
+/** Payoff of a call or put at expiry. */
+fun payoff(s: Double, strike: Double, isCall: Boolean): Double =
+    if (isCall) max(s - strike, 0.0) else max(strike - s, 0.0)
 
-/** Black-Scholes price; the payoff when T <= 0. */
-fun bsPrice(S: Double, X: Double, r: Double, sigma: Double, T: Double, isCall: Boolean): Double {
-    if (T <= 0) return payoff(S, X, isCall)
-    val (d1, d2) = d1d2(S, X, r, sigma, T)
-    return if (isCall) S * normCdf(d1) - X * exp(-r * T) * normCdf(d2)
-    else X * exp(-r * T) * normCdf(-d2) - S * normCdf(-d1)
+/** Black-Scholes price; the payoff when [maturity] <= 0. */
+fun bsPrice(
+    s: Double,
+    strike: Double,
+    r: Double,
+    sigma: Double,
+    maturity: Double,
+    isCall: Boolean,
+): Double {
+    if (maturity <= 0) return payoff(s, strike, isCall)
+    val (d1, d2) = d1d2(s, strike, r, sigma, maturity)
+    return if (isCall) {
+        s * normCdf(d1) - strike * exp(-r * maturity) * normCdf(d2)
+    } else {
+        strike * exp(-r * maturity) * normCdf(-d2) - s * normCdf(-d1)
+    }
 }
 
+/**
+ * Price and Greek parameters of an option.
+ *
+ * @property delta dV/dS
+ * @property gamma d2V/dS2
+ * @property theta dV/dt (per year)
+ * @property vega dV/dsigma
+ * @property rho dV/dr
+ */
 data class Greeks(
     val price: Double,
-    val delta: Double,  // dV/dS
-    val gamma: Double,  // d2V/dS2
-    val theta: Double,  // dV/dt (per year)
-    val vega: Double,   // dV/dsigma
-    val rho: Double,    // dV/dr
+    val delta: Double,
+    val gamma: Double,
+    val theta: Double,
+    val vega: Double,
+    val rho: Double,
 )
 
-enum class Greek(val label: String) { DELTA("delta"), GAMMA("gamma"), THETA("theta"), VEGA("vega"), RHO("rho") }
+/** Selects one Greek parameter; [label] is its name in the report. */
+enum class Greek(val label: String) {
+    DELTA("delta"),
+    GAMMA("gamma"),
+    THETA("theta"),
+    VEGA("vega"),
+    RHO("rho"),
+}
 
+/** The Greek parameter [which]. */
 fun Greeks.get(which: Greek): Double = when (which) {
     Greek.DELTA -> delta
     Greek.GAMMA -> gamma
@@ -95,17 +131,36 @@ fun Greeks.get(which: Greek): Double = when (which) {
 }
 
 /** The Greek parameters of a European option in the Black-Scholes model. */
-fun bsGreeks(S: Double, X: Double, r: Double, sigma: Double, T: Double, isCall: Boolean): Greeks {
-    val (d1, d2) = d1d2(S, X, r, sigma, T)
+fun bsGreeks(
+    s: Double,
+    strike: Double,
+    r: Double,
+    sigma: Double,
+    maturity: Double,
+    isCall: Boolean,
+): Greeks {
+    val (d1, d2) = d1d2(s, strike, r, sigma, maturity)
     val n1 = normPdf(d1)
-    val disc = X * exp(-r * T)
-    val gamma = n1 / (S * sigma * sqrt(T))
-    val vega = S * n1 * sqrt(T)
-    return if (isCall) Greeks(
-        S * normCdf(d1) - disc * normCdf(d2), normCdf(d1), gamma,
-        -S * n1 * sigma / (2 * sqrt(T)) - r * disc * normCdf(d2), vega, T * disc * normCdf(d2),
-    ) else Greeks(
-        disc * normCdf(-d2) - S * normCdf(-d1), normCdf(d1) - 1, gamma,
-        -S * n1 * sigma / (2 * sqrt(T)) + r * disc * normCdf(-d2), vega, -T * disc * normCdf(-d2),
-    )
+    val disc = strike * exp(-r * maturity)
+    val gamma = n1 / (s * sigma * sqrt(maturity))
+    val vega = s * n1 * sqrt(maturity)
+    return if (isCall) {
+        Greeks(
+            price = s * normCdf(d1) - disc * normCdf(d2),
+            delta = normCdf(d1),
+            gamma = gamma,
+            theta = -s * n1 * sigma / (2 * sqrt(maturity)) - r * disc * normCdf(d2),
+            vega = vega,
+            rho = maturity * disc * normCdf(d2),
+        )
+    } else {
+        Greeks(
+            price = disc * normCdf(-d2) - s * normCdf(-d1),
+            delta = normCdf(d1) - 1,
+            gamma = gamma,
+            theta = -s * n1 * sigma / (2 * sqrt(maturity)) + r * disc * normCdf(-d2),
+            vega = vega,
+            rho = -maturity * disc * normCdf(-d2),
+        )
+    }
 }

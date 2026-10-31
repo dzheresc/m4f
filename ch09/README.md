@@ -7,10 +7,11 @@ parallel implementations with the same API, and all three print the same output 
 
 ```
 ch09/
-  cpp/      C++20, CMake        include/m4f/{black_scholes,hedging,risk}.hpp (header-only), src/report.cpp, tests/
+  cpp/      C++20, CMake        include/m4f/{black_scholes,hedging,risk}.h (header-only), src/report.cc, tests/
   kotlin/   Kotlin 2.1, Gradle  src/main/kotlin/m4f/ch09/{BlackScholes,Hedging,Risk,Report}.kt, src/test/
-  python/   Python 3.10+        black_scholes.py, hedging.py, risk.py, ch09.py, test_ch09.py
+  python/   Python 3.10+        black_scholes.py, hedging.py, risk.py, ch09.py, ch09_test.py
   run_all.sh                    build + test + run all three and diff against expected_output.txt
+  check_style.sh                clang-format, cpplint, pyink, pylint, ktlint (whichever are installed)
 ```
 
 Options are European, priced by Black-Scholes with a continuously compounded `r`. Sections 9.2–9.3 model the
@@ -36,5 +37,12 @@ distinct from `r`).
 ./run_all.sh
 cmake -S cpp -B cpp/build && cmake --build cpp/build -j && ctest --test-dir cpp/build && cpp/build/ch09
 cd kotlin && ./gradlew test run
-cd python && python3 -m unittest test_ch09 && python3 ch09.py
+cd python && python3 -m unittest ch09_test && python3 ch09.py
 ```
+
+## Code style
+
+The code follows the Google style guides for C++ and Python and the Android Kotlin style guide;
+see [STYLE.md](../STYLE.md). API names in this README are the Kotlin ones: C++ uses PascalCase
+for functions (`riskNeutralProb` is `RiskNeutralProb`) and Python uses snake_case. Run
+`./check_style.sh` to check, or `./check_style.sh --fix` to reformat.
