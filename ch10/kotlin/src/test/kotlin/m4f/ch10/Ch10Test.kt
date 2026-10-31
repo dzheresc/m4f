@@ -98,4 +98,50 @@ class Ch10Test {
             1e-9,
         )
     }
+
+    /** The faster couponBondPrice, yieldToMaturity and duration against what they replaced. */
+    @Test
+    fun againstReference() {
+        val maturities = List(120) { (it + 1) / 12.0 }
+        val prices = maturities.map { exp(-0.04 * it) }
+        // Sorted, unsorted, off-grid and repeated flow times.
+        for (flowTimes in listOf(
+            listOf(1 / 12.0, 0.5, 1.0, 10.0),
+            listOf(10.0, 1.0, 0.5, 1 / 12.0),
+            listOf(0.3, 1.0, 11.0, 2.0, 2.0),
+        )) {
+            val flowAmounts = List(flowTimes.size) { if (it == flowTimes.size - 1) 105.0 else 5.0 }
+            var expected = 0.0
+            for (i in flowTimes.indices) {
+                val j = maturities.indexOf(flowTimes[i])
+                if (j >= 0) expected += flowAmounts[i] * prices[j]
+            }
+            assertEquals(expected, couponBondPrice(flowTimes, flowAmounts, maturities, prices))
+        }
+        for (n in listOf(1, 3, 30, 360)) {
+            val flowTimes = List(n) { (it + 1) / 12.0 }
+            val flowAmounts = List(n) { if (it == n - 1) 100.5 else 0.5 }
+            // Yields inside the bracket, plus prices whose root lies outside it.
+            for (bondPrice in listOf(50.0, 80.0, 100.0, 101.0, 130.0, 1.0, 1e6)) {
+                var lo = -1.0
+                var hi = 1.0
+                repeat(200) {
+                    val mid = (lo + hi) / 2
+                    var s = 0.0
+                    for (i in flowTimes.indices) s += flowAmounts[i] * exp(-mid * flowTimes[i])
+                    if (s > bondPrice) lo = mid else hi = mid
+                }
+                val y = yieldToMaturity(bondPrice, flowTimes, flowAmounts)
+                assertTrue(abs(y - (lo + hi) / 2) <= 1e-13, "n = $n, price = $bondPrice")
+            }
+        }
+        val bond = couponBond(100.0, 6.0, 10, 0.5)
+        for (t in listOf(0.0, 0.7, 4.9)) {
+            var s = 0.0
+            for (flow in bond) {
+                if (flow.t > t) s += (flow.t - t) * flow.amount * exp(-0.05 * (flow.t - t))
+            }
+            assertEquals(s / price(bond, 0.05, t), duration(bond, 0.05, t))
+        }
+    }
 }

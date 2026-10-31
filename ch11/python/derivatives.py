@@ -135,11 +135,19 @@ def floor(
 def caplet(
     rates: Lattice, probs: Lattice, tau: float, fixing: int, strike: float
 ) -> float:
-    """Value at 0 of the single caplet fixed at `fixing`, paid at fixing + 1."""
+    """Value at 0 of the single caplet fixed at `fixing`, paid at fixing + 1.
 
-    def payment(n: int, k: int) -> float:
-        if n != fixing:
-            return 0.0
-        return max(floating_rate(rates, tau, n, k) - strike, 0.0)
-
-    return price_payments(rates, probs, tau, fixing + 1, payment)[0][0]
+    Only level `fixing` pays, so this rolls one row back from there instead of
+    building the whole price_payments() lattice; the result is the same.
+    """
+    v = [
+        rate_tree.one_step_price(rates[fixing][k], tau)
+        * max(floating_rate(rates, tau, fixing, k) - strike, 0.0)
+        for k in range(fixing + 1)
+    ]
+    for n in range(fixing - 1, -1, -1):
+        v = [
+            rate_tree.one_step_price(r, tau) * (p * v_up + (1 - p) * v_down)
+            for r, p, v_down, v_up in zip(rates[n], probs[n], v, v[1:])
+        ]
+    return v[0]

@@ -45,6 +45,19 @@ class LibraryTest(unittest.TestCase):
         self.assertAlmostEqual(
             binomial_tree.binomial_prob(2000, 1000, 0.5), 0.017839011, places=9
         )
+        long_tree = binomial_tree.BinomialTree(100, 0.02, -0.01, 0.005)
+        self.assertAlmostEqual(  # E(S(n)) = S(0) (1 + E K)^n.
+            long_tree.expected_price(2000, 0.6)
+            / (100 * (1 + 0.6 * 0.02 + 0.4 * -0.01) ** 2000),
+            1,
+        )
+        self.assertAlmostEqual(  # Against the node-by-node sum.
+            long_tree.expected_price(50, 0.6),
+            sum(
+                long_tree.price(50, k) * binomial_tree.binomial_prob(50, k, 0.6)
+                for k in range(51)
+            ),
+        )
         tree = binomial_tree.BinomialTree(60, 0.2, -0.1, 0.05)
         q = tree.risk_neutral_prob()
         self.assertTrue(tree.is_arbitrage_free())

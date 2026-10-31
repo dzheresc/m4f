@@ -44,11 +44,24 @@ class BinomialTree:
         return p * self.u + (1 - p) * self.d
 
     def expected_price(self, n: int, p: float) -> float:
-        """E(S(n)) as a sum over the n+1 nodes at step n."""
+        """E(S(n)) as a sum over the n+1 nodes at step n, O(n).
+
+        Each term C(n, k) p^k (1-p)^(n-k) S(n, k) is built in log space,
+        updating log C(n, k) from k to k+1, so nothing overflows for large n.
+        """
+        if p <= 0:
+            return self.price(n, 0)
+        if p >= 1:
+            return self.price(n, n)
+        log_up = math.log(p) + math.log1p(self.u)
+        log_down = math.log1p(-p) + math.log1p(self.d)
+        log_c = 0.0
         total = 0.0
         for k in range(n + 1):
-            total += self.price(n, k) * binomial_prob(n, k, p)
-        return total
+            total += math.exp(log_c + k * log_up + (n - k) * log_down)
+            if k < n:
+                log_c += math.log(n - k) - math.log(k + 1)
+        return self.s0 * total
 
     # 3.2.1 Risk-neutral probability
     def is_arbitrage_free(self) -> bool:

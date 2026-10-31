@@ -20,6 +20,6 @@ Builds: CMake for C++, Gradle for Kotlin; the Python code uses only the standard
 
 Run `./run_all.sh` inside a chapter to build, test and diff all three languages.
 
-C++ benchmarks and before/after results: see [PERFORMANCE.md](PERFORMANCE.md).
+Benchmarks and before/after results: [C++](PERFORMANCE.md), [Kotlin](PERFORMANCE_KOTLIN.md), [Python](PERFORMANCE_PYTHON.md). Each chapter runs them with `./bench.sh`, `./bench.sh --kotlin` or `./bench.sh --python`.
 
 Code style: Google style guides (Android style for Kotlin), see [STYLE.md](STYLE.md). Chapters are converted one at a time; a converted chapter has a `check_style.sh`.

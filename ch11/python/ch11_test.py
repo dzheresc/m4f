@@ -137,5 +137,38 @@ class LibraryTest(unittest.TestCase):
         )
 
 
+class AgainstReferenceTest(unittest.TestCase):
+    """Forward-induction bond_prices and the rolling caplet against the lattice
+    computations they replaced, with node-dependent probabilities."""
+
+    def test_against_lattices(self) -> None:
+        n_steps = 60
+        rates = rate_tree.rate_lattice(0.05, 0.004, -0.003, n_steps)
+        probs = [
+            [0.3 + 0.4 * math.fmod(0.618 * (n * 7 + k * 3), 1.0)
+             for k in range(n + 1)]
+            for n in range(n_steps)
+        ]  # fmt: skip
+        b0 = rate_tree.bond_prices(rates, probs, 0.25, n_steps)
+        for m in range(1, n_steps + 1):
+            ref = rate_tree.bond_lattice(rates, probs, 0.25, m)[0][0]
+            self.assertLessEqual(abs(b0[m - 1] - ref), 1e-14 * ref)
+        for fixing in (0, 1, 7, 59):
+
+            def payment(n: int, k: int, fixing: int = fixing) -> float:
+                if n != fixing:
+                    return 0.0
+                return max(
+                    derivatives.floating_rate(rates, 0.25, n, k) - 0.05, 0.0
+                )
+
+            ref = derivatives.price_payments(
+                rates, probs, 0.25, fixing + 1, payment
+            )[0][0]
+            self.assertEqual(
+                derivatives.caplet(rates, probs, 0.25, fixing, 0.05), ref
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

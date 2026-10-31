@@ -49,15 +49,54 @@ fun normCdf(x: Double): Double {
 /** Standard normal density. */
 fun normPdf(x: Double): Double = exp(-x * x / 2) / 2.506628274631000502
 
-/** Quantile of the standard normal, by bisection on [normCdf] (0 < p < 1). */
+// Acklam's rational approximation to the normal quantile: central region numerator (A) and
+// denominator (B), tails (C, D).
+private val ACKLAM_A = doubleArrayOf(
+    -3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
+    1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00,
+)
+private val ACKLAM_B = doubleArrayOf(
+    -5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
+    6.680131188771972e+01, -1.328068155288572e+01,
+)
+private val ACKLAM_C = doubleArrayOf(
+    -7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00,
+    -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00,
+)
+private val ACKLAM_D = doubleArrayOf(
+    7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00,
+)
+private const val ACKLAM_LOW = 0.02425
+
+/**
+ * Inverse of [normCdf]. Acklam's rational approximation (relative error below 1.2e-9) followed
+ * by one Halley step against normCdf itself, which brings it to full double precision, about
+ * the cost of two normCdf calls. [p] outside (0, 1) returns -40 or 40.
+ */
 fun normInv(p: Double): Double {
-    var lo = -40.0
-    var hi = 40.0
-    repeat(200) {
-        val mid = (lo + hi) / 2
-        if (normCdf(mid) < p) lo = mid else hi = mid
+    if (!(p > 0)) return -40.0
+    if (!(p < 1)) return 40.0
+    val a = ACKLAM_A
+    val b = ACKLAM_B
+    val c = ACKLAM_C
+    val d = ACKLAM_D
+    var x: Double
+    if (p < ACKLAM_LOW || p > 1 - ACKLAM_LOW) {
+        // Tails: q = sqrt(-2 ln(min(p, 1-p))).
+        val q = sqrt(-2 * ln(if (p < ACKLAM_LOW) p else 1 - p))
+        x = (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+            ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
+        if (p > 1 - ACKLAM_LOW) x = -x
+    } else {
+        val q = p - 0.5
+        val r = q * q
+        x = (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q /
+            (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
     }
-    return (lo + hi) / 2
+    // Halley step on normCdf(x) - p.
+    val e = normCdf(x) - p
+    val u = e * 2.506628274631000502 * exp(x * x / 2)
+    return x - u / (1 + x * u / 2)
 }
 
 /** (d1, d2) of the Black-Scholes formula. */
@@ -144,23 +183,29 @@ fun bsGreeks(
     val disc = strike * exp(-r * maturity)
     val gamma = n1 / (s * sigma * sqrt(maturity))
     val vega = s * n1 * sqrt(maturity)
+    val theta0 = -s * n1 * sigma / (2 * sqrt(maturity))
+    // Each normCdf is evaluated once.
     return if (isCall) {
+        val nd1 = normCdf(d1)
+        val nd2 = normCdf(d2)
         Greeks(
-            price = s * normCdf(d1) - disc * normCdf(d2),
-            delta = normCdf(d1),
+            price = s * nd1 - disc * nd2,
+            delta = nd1,
             gamma = gamma,
-            theta = -s * n1 * sigma / (2 * sqrt(maturity)) - r * disc * normCdf(d2),
+            theta = theta0 - r * disc * nd2,
             vega = vega,
-            rho = maturity * disc * normCdf(d2),
+            rho = maturity * disc * nd2,
         )
     } else {
+        val nmd1 = normCdf(-d1)
+        val nmd2 = normCdf(-d2)
         Greeks(
-            price = disc * normCdf(-d2) - s * normCdf(-d1),
+            price = disc * nmd2 - s * nmd1,
             delta = normCdf(d1) - 1,
             gamma = gamma,
-            theta = -s * n1 * sigma / (2 * sqrt(maturity)) + r * disc * normCdf(-d2),
+            theta = theta0 + r * disc * nmd2,
             vega = vega,
-            rho = -maturity * disc * normCdf(-d2),
+            rho = -maturity * disc * nmd2,
         )
     }
 }

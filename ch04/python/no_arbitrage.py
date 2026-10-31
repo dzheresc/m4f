@@ -15,8 +15,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
-import strategies
-
 
 def is_arbitrage_free(returns: Sequence[float], r: float) -> bool:
     return min(returns) < r < max(returns)
@@ -99,21 +97,34 @@ def expected_discounted_value(
     """E(V~(N)) over all 2^N paths, with V~(N) = V(N) / (1+r)^N, A(0) = 1.
 
     Under p = p* this equals V(0) for every self-financing rule.
+
+    The paths are walked depth first, so paths share their common prefix: the
+    rule is called once per tree node (2^N - 1 calls in all, with the moves so
+    far), and nothing is built per path.
     """
     a = [(1 + r) ** n for n in range(num_steps + 1)]
+    moves: list[int] = []
     total = 0.0
-    for mask in range(1 << num_steps):
-        moves = [(mask >> i) & 1 for i in range(num_steps)]
-        s = [s0]
-        for move in moves:
-            s.append(s[-1] * (1 + (u if move else d)))
-        x = [rule(n, moves[: n - 1]) for n in range(1, num_steps + 1)]
-        _, values = strategies.self_financing(v0, s, a, x)
-        ups = sum(moves)
-        total += (
-            p**ups
-            * (1 - p) ** (num_steps - ups)
-            * values[num_steps]
-            / a[num_steps]
-        )
+
+    def walk(n: int, s: float, v: float, weight: float) -> None:
+        # At time n-1 with stock price s and strategy value v, reached with
+        # probability `weight`; chooses x(n) and branches on the n-th move.
+        nonlocal total
+        if n > num_steps:
+            total += weight * v / a[num_steps]
+            return
+        x = rule(n, moves)
+        y = (v - x * s) / a[n - 1]
+        for move in (0, 1):
+            s_next = s * (1 + (u if move else d))
+            moves.append(move)
+            walk(
+                n + 1,
+                s_next,
+                y * a[n] + x * s_next,
+                weight * (p if move else 1 - p),
+            )
+            moves.pop()
+
+    walk(1, s0, v0, 1.0)
     return total

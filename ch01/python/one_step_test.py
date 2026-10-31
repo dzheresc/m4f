@@ -77,6 +77,26 @@ class OneStepMarketTest(unittest.TestCase):
         self.assertEqual([leg.to for leg in cycle.legs], ["GBP", "EUR", "USD"])
         self.assertAlmostEqual(cycle.growth, 1.0202 / (1.5844 * 0.6401))
 
+    def test_fx_leg_lookup(self) -> None:
+        """Guards the best-leg table that FxMarket builds for speed."""
+        fx = fx_arbitrage.FxMarket(
+            [
+                fx_arbitrage.FxQuote("A", "EUR", "USD", 1.10, 1.20),
+                fx_arbitrage.FxQuote("B", "EUR", "USD", 1.10, 1.15),
+                fx_arbitrage.FxQuote("C", "GBP", "USD", 1.30, 1.40),
+            ]
+        )
+        sell_eur = fx.best_leg("EUR", "USD")
+        self.assertEqual(sell_eur.dealer, "A")  # Tie goes to the first.
+        self.assertAlmostEqual(sell_eur.rate, 1.10)
+        buy_eur = fx.best_leg("USD", "EUR")
+        self.assertEqual(buy_eur.dealer, "B")  # Best rate wins.
+        self.assertAlmostEqual(buy_eur.rate, 1 / 1.15)
+        self.assertIsNone(fx.best_leg("EUR", "GBP"))
+        self.assertIsNone(fx.best_leg("EUR", "JPY"))
+        self.assertIsNone(fx.best_leg("JPY", "EUR"))
+        self.assertEqual(fx.best_cycle("JPY"), fx_arbitrage.FxCycle((), 0.0))
+
     def test_example_1_4(self) -> None:
         market = OneStepMarket(100, 110, 100, 125, 105, 0.5)
         self.assertAlmostEqual(market.u, 0.25)

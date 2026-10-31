@@ -97,9 +97,21 @@ def crr_tree_price(
     d = math.exp(-sigma * math.sqrt(tau)) - 1
     r_step = math.exp(r * tau) - 1
 
-    def payoff(x: float) -> float:
-        return max(x - strike, 0.0) if is_call else max(strike - x, 0.0)
+    def payoffs(prices: list[float]) -> list[float]:
+        # max(x - K, 0) or max(K - x, 0) for each price, without a call each.
+        gains = [x - strike if is_call else strike - x for x in prices]
+        return binomial_pricing.at_least(gains, [0.0] * len(gains))
 
-    return binomial_pricing.option_tree(
-        s, u, d, r_step, num_steps, payoff, american
-    )[0][0]
+    # The same backward induction as option_tree, keeping one row instead of
+    # the whole tree.
+    q = binomial_pricing.risk_neutral_prob(u, d, r_step)
+    prices = binomial_pricing.stock_price_rows(s, u, d, num_steps)
+    values = payoffs(prices(num_steps))
+    for n in range(num_steps - 1, -1, -1):
+        values = [
+            (q * v_up + (1 - q) * v_down) / (1 + r_step)
+            for v_down, v_up in zip(values, values[1:])
+        ]
+        if american:
+            values = binomial_pricing.at_least(values, payoffs(prices(n)))
+    return values[0]

@@ -19,7 +19,57 @@ def price(
     )
 
 
+def reference_crr(
+    s0: float,
+    strike: float,
+    num_steps: int,
+    is_call: bool,
+    american: bool,
+) -> float:
+    """CRR backward induction pricing every node with two powers, as the book
+    writes it (r = 0.05, sigma = 0.3, T = 1.5)."""
+    tau = 1.5 / num_steps
+    up = math.exp(0.3 * math.sqrt(tau))
+    down = 1 / up
+    growth = math.exp(0.05 * tau)
+    q = (growth - down) / (up - down)
+
+    def payoff(s: float) -> float:
+        return max(s - strike, 0.0) if is_call else max(strike - s, 0.0)
+
+    v = [
+        payoff(s0 * up**k * down ** (num_steps - k))
+        for k in range(num_steps + 1)
+    ]
+    for n in range(num_steps - 1, -1, -1):
+        for k in range(n + 1):
+            v[k] = (q * v[k + 1] + (1 - q) * v[k]) / growth
+            if american:
+                v[k] = max(v[k], payoff(s0 * up**k * down ** (n - k)))
+    return v[0]
+
+
 class LibraryTest(unittest.TestCase):
+
+    def test_against_reference(self) -> None:
+        for n in (1, 7, 200):
+            for is_call in (True, False):
+                for american in (False, True):
+                    for strike in (80.0, 100.0, 125.0):
+                        self.assertAlmostEqual(
+                            binomial.crr_price(
+                                100,
+                                strike,
+                                0.05,
+                                0.3,
+                                1.5,
+                                n,
+                                is_call,
+                                american,
+                            ),
+                            reference_crr(100, strike, n, is_call, american),
+                            places=9,
+                        )
 
     def test_payoffs(self) -> None:
         for s in (80.0, 100.0, 120.0):

@@ -36,8 +36,18 @@ def std_dev(k: Sequence[float], p: Sequence[float]) -> float:
 def correlation(
     k1: Sequence[float], k2: Sequence[float], p: Sequence[float]
 ) -> float:
-    """Correlation coefficient rho_12."""
-    return covariance(k1, k2, p) / (std_dev(k1, p) * std_dev(k2, p))
+    """Correlation coefficient rho_12.
+
+    One pass for the three second moments; same arithmetic as
+    covariance(k1, k2, p) / (std_dev(k1, p) * std_dev(k2, p)).
+    """
+    m1, m2 = mean(k1, p), mean(k2, p)
+    cov = var1 = var2 = 0.0
+    for a, b, p_i in zip(k1, k2, p):
+        cov += p_i * (a - m1) * (b - m2)
+        var1 += p_i * (a - m1) * (a - m1)
+        var2 += p_i * (b - m2) * (b - m2)
+    return cov / (math.sqrt(var1) * math.sqrt(var2))
 
 
 # Section 5.2.1: two securities, w1 in the first and w2 = 1 - w1 in the second.

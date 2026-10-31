@@ -1,5 +1,6 @@
 """Unit tests for chapter 5."""
 
+import math
 import unittest
 
 import portfolio
@@ -57,6 +58,32 @@ class LibraryTest(unittest.TestCase):
                 self.assertAlmostEqual(
                     portfolio.dot(row, column), 1.0 if i == j else 0.0
                 )
+
+    def test_solve_symmetric(self) -> None:
+        """Cholesky solve against the explicit inverse.
+
+        On a 40-asset positive definite matrix, and on an indefinite symmetric
+        matrix, which takes the fallback path.
+        """
+        n = 40
+        spd = [  # F F^T + D: three factors plus idiosyncratic variance.
+            [
+                (0.02 + 0.001 * i if i == j else 0.0)
+                + sum(
+                    0.01 * math.cos(f * (i + 1.0)) * math.cos(f * (j + 1.0))
+                    for f in (1, 2, 3)
+                )
+                for j in range(n)
+            ]
+            for i in range(n)
+        ]
+        indefinite = [[1.0, 2.0, 0.0], [2.0, 1.0, 0.0], [0.0, 0.0, 3.0]]
+        for c in (spd, indefinite):
+            b = [1.0 + 0.1 * i for i in range(len(c))]
+            expected = portfolio.vec_mat(b, portfolio.inverse(c))
+            (x,) = portfolio.solve_symmetric(c, [b])
+            for x_i, e_i in zip(x, expected):
+                self.assertLess(abs(x_i - e_i) / max(1.0, abs(e_i)), 1e-9)
 
     def test_frontier(self) -> None:
         w_min = portfolio.min_variance_portfolio(self.cov)

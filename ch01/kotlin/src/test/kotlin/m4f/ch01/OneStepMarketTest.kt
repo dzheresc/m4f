@@ -85,6 +85,28 @@ class OneStepMarketTest {
         assertNear(1.0202 / (1.5844 * 0.6401), cycle.growth)
     }
 
+    /** Guards the best-leg table that FxMarket builds for speed. */
+    @Test
+    fun fxLegLookup() {
+        val fx = FxMarket(
+            listOf(
+                FxQuote("A", "EUR", "USD", 1.10, 1.20),
+                FxQuote("B", "EUR", "USD", 1.10, 1.15),
+                FxQuote("C", "GBP", "USD", 1.30, 1.40),
+            ),
+        )
+        val sellEur = fx.bestLeg("EUR", "USD")!!
+        assertEquals("A", sellEur.dealer) // Tie goes to the first dealer.
+        assertNear(1.10, sellEur.rate)
+        val buyEur = fx.bestLeg("USD", "EUR")!!
+        assertEquals("B", buyEur.dealer) // Best rate wins.
+        assertNear(1 / 1.15, buyEur.rate)
+        assertEquals(null, fx.bestLeg("EUR", "GBP"))
+        assertEquals(null, fx.bestLeg("EUR", "JPY"))
+        assertEquals(null, fx.bestLeg("JPY", "EUR"))
+        assertEquals(FxCycle(emptyList(), 0.0), fx.bestCycle("JPY"))
+    }
+
     @Test
     fun example14() {
         val m4 = OneStepMarket(100.0, 110.0, 100.0, 125.0, 105.0, 0.5)

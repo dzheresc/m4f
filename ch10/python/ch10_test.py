@@ -130,5 +130,75 @@ class LibraryTest(unittest.TestCase):
         )
 
 
+class AgainstReferenceTest(unittest.TestCase):
+    """The faster functions against the plain versions they replaced."""
+
+    def test_coupon_bond_price(self) -> None:
+        def reference(flow_times, flow_amounts, maturities, prices):
+            total = 0.0
+            for t, amount in zip(flow_times, flow_amounts):
+                if t in maturities:
+                    total += amount * prices[maturities.index(t)]
+            return total
+
+        maturities = [k / 12.0 for k in range(1, 121)]
+        prices = [math.exp(-0.04 * k / 12.0) for k in range(1, 121)]
+        # Sorted, unsorted, off-grid and repeated flow times.
+        for flow_times in (
+            [1 / 12.0, 0.5, 1.0, 10.0],
+            [10.0, 1.0, 0.5, 1 / 12.0],
+            [0.3, 1.0, 11.0, 2.0, 2.0],
+        ):
+            flow_amounts = [5.0] * (len(flow_times) - 1) + [105.0]
+            self.assertEqual(
+                term_structure.coupon_bond_price(
+                    flow_times, flow_amounts, maturities, prices
+                ),
+                reference(flow_times, flow_amounts, maturities, prices),
+            )
+
+    def test_yield_to_maturity(self) -> None:
+        def bisect(bond_price, flow_times, flow_amounts):
+            lo, hi = -1.0, 1.0
+            for _ in range(200):
+                mid = (lo + hi) / 2
+                value = term_structure.plain_sum(
+                    a * math.exp(-mid * t)
+                    for t, a in zip(flow_times, flow_amounts)
+                )
+                if value > bond_price:
+                    lo = mid
+                else:
+                    hi = mid
+            return (lo + hi) / 2
+
+        for n in (1, 3, 30, 360):
+            flow_times = [i / 12.0 for i in range(1, n + 1)]
+            flow_amounts = [0.5] * (n - 1) + [100.5]
+            # Yields inside the bracket, plus prices whose root lies outside.
+            for bond_price in (50.0, 80.0, 100.0, 101.0, 130.0, 1.0, 1e6):
+                self.assertLessEqual(
+                    abs(
+                        term_structure.yield_to_maturity(
+                            bond_price, flow_times, flow_amounts
+                        )
+                        - bisect(bond_price, flow_times, flow_amounts)
+                    ),
+                    1e-13,
+                )
+
+    def test_duration_bit_identical(self) -> None:
+        bond = bonds.coupon_bond(100.0, 6.0, 10, 0.5)
+        for t in (0.0, 0.7, 4.9):
+            s = term_structure.plain_sum(
+                (f.t - t) * f.amount * math.exp(-0.05 * (f.t - t))
+                for f in bond
+                if f.t > t
+            )
+            self.assertEqual(
+                bonds.duration(bond, 0.05, t), s / bonds.price(bond, 0.05, t)
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

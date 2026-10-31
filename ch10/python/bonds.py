@@ -50,13 +50,23 @@ def price(bond: Bond, y: float, t: float = 0.0) -> float:
     )
 
 
+def price_and_duration(
+    bond: Bond, y: float, t: float = 0.0
+) -> tuple[float, float]:
+    """Price and duration of the bond, in one pass over the cash flows."""
+    p = 0.0
+    s = 0.0
+    for flow in bond:
+        if flow.t > t:
+            e = math.exp(-y * (flow.t - t))
+            p += flow.amount * e
+            s += (flow.t - t) * flow.amount * e
+    return p, s / p
+
+
 def duration(bond: Bond, y: float, t: float = 0.0) -> float:
     """D = sum (t_i - t) C_i e^(-y(t_i - t)) / P; dP/dy = -D P."""
-    return plain_sum(
-        (flow.t - t) * flow.amount * math.exp(-y * (flow.t - t))
-        for flow in bond
-        if flow.t > t
-    ) / price(bond, y, t)
+    return price_and_duration(bond, y, t)[1]
 
 
 def investment_value(bond: Bond, y: float, t: float) -> float:
@@ -113,14 +123,30 @@ def portfolio_value(
     return p.q1 * price(b1, y, t) + p.q2 * price(b2, y, t) + p.cash
 
 
+def immunise_priced(
+    v: float,
+    pd1: tuple[float, float],
+    pd2: tuple[float, float],
+    d_target: float,
+) -> Portfolio:
+    """Invest v in bonds 1 and 2, given (price, duration) of each.
+
+    The portfolio duration equals d_target.
+    """
+    w1, w2 = immunising_weights(pd1[1], pd2[1], d_target)
+    return Portfolio(w1 * v / pd1[0], w2 * v / pd2[0], 0.0)
+
+
 def immunise(
     v: float, b1: Bond, b2: Bond, y: float, t: float, horizon: float
 ) -> Portfolio:
     """Invest v at time t in bonds 1 and 2 with duration horizon - t."""
-    w1, w2 = immunising_weights(
-        duration(b1, y, t), duration(b2, y, t), horizon - t
+    return immunise_priced(
+        v,
+        price_and_duration(b1, y, t),
+        price_and_duration(b2, y, t),
+        horizon - t,
     )
-    return Portfolio(w1 * v / price(b1, y, t), w2 * v / price(b2, y, t), 0.0)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -170,16 +196,18 @@ def dynamic_hedge(
             for flow in b:
                 if t_prev < flow.t <= t:
                     cash += q * flow.amount * math.exp(y_prev * (t - flow.t))
+        # Both bonds are priced once per step; the values equal price() and
+        # duration() bit for bit.
         p = Portfolio(p.q1, p.q2, cash)
-        v = portfolio_value(p, b1, b2, y, t)
-        if rebalance and t < horizon:
-            p = immunise(v, b1, b2, y, t, horizon)
         if t < horizon:
-            d = (
-                p.q1 * price(b1, y, t) * duration(b1, y, t)
-                + p.q2 * price(b2, y, t) * duration(b2, y, t)
-            ) / v
+            pd1 = price_and_duration(b1, y, t)
+            pd2 = price_and_duration(b2, y, t)
+            v = p.q1 * pd1[0] + p.q2 * pd2[0] + p.cash
+            if rebalance:
+                p = immunise_priced(v, pd1, pd2, horizon - t)
+            d = (p.q1 * pd1[0] * pd1[1] + p.q2 * pd2[0] * pd2[1]) / v
         else:
+            v = portfolio_value(p, b1, b2, y, t)
             d = 0.0
         steps.append(HedgeStep(t, y, v, p.q1, p.q2, d))
     return steps

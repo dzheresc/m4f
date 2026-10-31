@@ -16,9 +16,12 @@ typealias Lattice = List<List<Double>>
 /** A value attached to node (n, k). */
 typealias NodeFn = (Int, Int) -> Double
 
-/** Additive tree: r(n,k) = r0 + k up + (n-k) down (down is negative for a fall). */
+/**
+ * Additive tree: r(n,k) = r0 + k up + (n-k) down (down is negative for a fall). Rows are stored
+ * as unboxed arrays behind a List view.
+ */
 fun rateLattice(r0: Double, up: Double, down: Double, numSteps: Int): Lattice =
-    List(numSteps + 1) { n -> List(n + 1) { k -> r0 + k * up + (n - k) * down } }
+    List(numSteps + 1) { n -> DoubleArray(n + 1) { k -> r0 + k * up + (n - k) * down }.asList() }
 
 /** The same up probability [p] at every node of levels 0..numSteps-1. */
 fun constantProbs(p: Double, numSteps: Int): Lattice = List(numSteps) { n -> List(n + 1) { p } }
@@ -55,25 +58,52 @@ fun discountBack(
     val values = List(numSteps + 1) { n -> DoubleArray(n + 1) }
     for (k in 0..numSteps) values[numSteps][k] = terminal[k]
     for (n in numSteps - 1 downTo 0) {
+        val next = values[n + 1]
+        val row = values[n]
         for (k in 0..n) {
             val p = probs[n][k]
-            var cont = p * values[n + 1][k + 1] + (1 - p) * values[n + 1][k]
+            var cont = p * next[k + 1] + (1 - p) * next[k]
             if (payment != null) cont += payment(n, k)
             var v = oneStepPrice(rates[n][k], tau) * cont
             if (early != null) v = max(v, early(n, k))
-            values[n][k] = v
+            row[k] = v
         }
     }
-    return values.map { it.toList() }
+    return values.map { it.asList() } // Views, not copies.
 }
 
 /** 11.2: B(n,N;k) for all nodes, from B(N,N) = 1. */
 fun bondLattice(rates: Lattice, probs: Lattice, tau: Double, maturity: Int): Lattice =
     discountBack(rates, probs, tau, List(maturity + 1) { 1.0 })
 
-/** B(0,1), ..., B(0,N). */
-fun bondPrices(rates: Lattice, probs: Lattice, tau: Double, numSteps: Int): List<Double> =
-    (1..numSteps).map { bondLattice(rates, probs, tau, it)[0][0] }
+/**
+ * B(0,1), ..., B(0,N), by forward induction over the Arrow-Debreu state prices Q(n,k), the time-0
+ * value of 1 paid at node (n,k): B(0,n+1) = sum_k Q(n,k) e^(-r(n,k) tau), and Q(n+1,.) receives
+ * Q(n,k) e^(-r(n,k) tau) times p* (up) or 1 - p* (down). One O(N^2) pass instead of a backward
+ * induction per maturity; equal to bondLattice(...)[0][0] up to rounding.
+ */
+fun bondPrices(rates: Lattice, probs: Lattice, tau: Double, numSteps: Int): List<Double> {
+    val out = DoubleArray(numSteps)
+    var q = DoubleArray(numSteps + 1)
+    var next = DoubleArray(numSteps + 1)
+    q[0] = 1.0
+    for (n in 0 until numSteps) {
+        next.fill(0.0, 0, n + 2)
+        var bond = 0.0
+        for (k in 0..n) {
+            val d = q[k] * oneStepPrice(rates[n][k], tau)
+            bond += d
+            val p = probs[n][k]
+            next[k + 1] += p * d
+            next[k] += (1 - p) * d
+        }
+        out[n] = bond
+        val swap = q
+        q = next
+        next = swap
+    }
+    return out.asList()
+}
 
 /** y(n,N) = -ln B(n,N) / ((N-n) tau). */
 fun yieldRate(bondPrice: Double, n: Int, maturity: Int, tau: Double): Double =

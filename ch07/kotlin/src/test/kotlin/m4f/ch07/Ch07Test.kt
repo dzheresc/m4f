@@ -2,6 +2,9 @@ package m4f.ch07
 
 import kotlin.math.abs
 import kotlin.math.exp
+import kotlin.math.max
+import kotlin.math.pow
+import kotlin.math.sqrt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -66,5 +69,44 @@ class Ch07Test {
         assertTrue(butterflyGap(calls[0], calls[1], calls[2], 90.0, 100.0, 110.0) <= 0)
         assertTrue(calls[0] - calls[1] <= 10 * exp(-0.05))
         assertNear(1.5, butterflyGap(15.0, 10.0, 2.0, 90.0, 100.0, 110.0))
+    }
+
+    /** CRR backward induction pricing every node with two pow calls, as the book writes it. */
+    private fun referenceCrr(
+        strike: Double,
+        numSteps: Int,
+        isCall: Boolean,
+        american: Boolean,
+    ): Double {
+        val tau = 1.5 / numSteps
+        val up = exp(0.3 * sqrt(tau))
+        val down = 1 / up
+        val growth = exp(0.05 * tau)
+        val q = (growth - down) / (up - down)
+        fun payoff(s: Double) = if (isCall) max(s - strike, 0.0) else max(strike - s, 0.0)
+        val v = DoubleArray(numSteps + 1) { payoff(100 * up.pow(it) * down.pow(numSteps - it)) }
+        for (n in numSteps - 1 downTo 0) {
+            for (k in 0..n) {
+                v[k] = (q * v[k + 1] + (1 - q) * v[k]) / growth
+                if (american) v[k] = max(v[k], payoff(100 * up.pow(k) * down.pow(n - k)))
+            }
+        }
+        return v[0]
+    }
+
+    @Test
+    fun againstReference() {
+        for (n in listOf(1, 7, 200, 1000)) {
+            for (isCall in listOf(true, false)) {
+                for (american in listOf(false, true)) {
+                    for (strike in listOf(80.0, 100.0, 125.0)) {
+                        assertNear(
+                            referenceCrr(strike, n, isCall, american),
+                            crrPrice(100.0, strike, 0.05, 0.3, 1.5, n, isCall, american),
+                        )
+                    }
+                }
+            }
+        }
     }
 }

@@ -105,8 +105,9 @@ in Kotlin), with large-N tests in each.
 - **Chapter 11 lattice functions:** their cost is one `exp` per node for the
   discount factor. Removing it would put a precomputed discount lattice in the
   public API.
-- **Kotlin and Python:** only the bug fixes were ported. The speedups are in
-  C++ only.
+- **Kotlin and Python:** the same changes are ported, with their own
+  measurements in [PERFORMANCE_KOTLIN.md](PERFORMANCE_KOTLIN.md) and
+  [PERFORMANCE_PYTHON.md](PERFORMANCE_PYTHON.md).
 
 ## Pull requests
 

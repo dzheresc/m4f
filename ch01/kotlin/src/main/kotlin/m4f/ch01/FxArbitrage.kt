@@ -28,46 +28,63 @@ class FxMarket(quotes: List<FxQuote>) {
         )
     }
     private val currencies = quotes.flatMap { listOf(it.base, it.quote) }.distinct().sorted()
+    private val index = currencies.withIndex().associate { (i, c) -> c to i }
+
+    // n x n table, row = from, column = to: index into legs of the best leg, or -1. Built once
+    // so that the search does no string comparisons. Legs are scanned in order and only a
+    // strictly better rate replaces the current best, so the first dealer wins ties.
+    private val bestLegIndex = IntArray(currencies.size * currencies.size) { -1 }.also { table ->
+        for ((k, leg) in legs.withIndex()) {
+            val cell = index.getValue(leg.from) * currencies.size + index.getValue(leg.to)
+            if (table[cell] < 0 || leg.rate > legs[table[cell]].rate) table[cell] = k
+        }
+    }
 
     /** Best direct conversion [from] -> [to] (first dealer wins ties). */
     fun bestLeg(from: String, to: String): FxLeg? {
-        var best: FxLeg? = null
-        for (leg in legs) {
-            if (leg.from == from && leg.to == to && (best == null || leg.rate > best.rate)) {
-                best = leg
-            }
-        }
-        return best
+        val i = index[from] ?: return null
+        val j = index[to] ?: return null
+        val k = bestLegIndex[i * currencies.size + j]
+        return if (k < 0) null else legs[k]
     }
 
     /**
      * Most profitable round trip [start] -> ... -> [start] through distinct currencies
-     * (exhaustive search; fine for a handful of currencies).
+     * (exhaustive search over currency and leg indices; fine for a handful of currencies).
      */
     fun bestCycle(start: String): FxCycle {
-        var best = FxCycle(emptyList(), 0.0)
-        val path = ArrayList<FxLeg>()
-        val visited = mutableListOf(start)
+        val s = index[start] ?: return FxCycle(emptyList(), 0.0)
+        val n = currencies.size
+        val visited = BooleanArray(n)
+        val path = IntArray(n)
+        var depth = 0
+        var bestPath = IntArray(0)
+        var bestGrowth = 0.0
 
-        fun search(at: String, growth: Double) {
-            for (next in currencies) {
-                val leg = bestLeg(at, next) ?: continue
-                val closes = next == start
-                if (!closes && next in visited) continue
-                if (closes && path.isEmpty()) continue
-                path.add(leg)
-                val newGrowth = growth * leg.rate
+        fun search(at: Int, growth: Double) {
+            for (next in 0 until n) {
+                val k = bestLegIndex[at * n + next]
+                if (k < 0) continue
+                val closes = next == s
+                if (!closes && visited[next]) continue
+                if (closes && depth == 0) continue
+                path[depth++] = k
+                val newGrowth = growth * legs[k].rate
                 if (closes) {
-                    if (newGrowth > best.growth) best = FxCycle(path.toList(), newGrowth)
+                    if (newGrowth > bestGrowth) {
+                        bestGrowth = newGrowth
+                        bestPath = path.copyOf(depth)
+                    }
                 } else {
-                    visited.add(next)
+                    visited[next] = true
                     search(next, newGrowth)
-                    visited.removeAt(visited.lastIndex)
+                    visited[next] = false
                 }
-                path.removeAt(path.lastIndex)
+                depth--
             }
         }
-        search(start, 1.0)
-        return best
+        visited[s] = true
+        search(s, 1.0)
+        return FxCycle(bestPath.map { legs[it] }, bestGrowth)
     }
 }

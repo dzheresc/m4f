@@ -39,4 +39,18 @@ class Ch02Test {
         assertNear(0.12, yieldToMaturity(price, 100.0, 10.0, 3), 1e-8)
         assertNear(100.0, couponBondPrice(100.0, 10.0, 3, 0.10))
     }
+
+    /** Closed-form price and Newton solver against a direct sum, including y = 0 and tiny y. */
+    @Test
+    fun closedFormAndNewton() {
+        for (n in listOf(1, 3, 60, 360)) {
+            for (y in listOf(-0.5, -1e-9, 0.0, 1e-9, 0.004, 0.12, 2.0)) {
+                var direct = 100 * (1 + y).pow(-n)
+                for (k in 1..n) direct += 5 * (1 + y).pow(-k)
+                assertNear(direct, couponBondPrice(100.0, 5.0, n, y), 1e-9 * direct)
+                assertNear(y, yieldToMaturity(direct, 100.0, 5.0, n), 1e-9)
+            }
+        }
+        assertNear(-0.99, yieldToMaturity(1e9, 100.0, 5.0, 3), 1e-9)
+    }
 }

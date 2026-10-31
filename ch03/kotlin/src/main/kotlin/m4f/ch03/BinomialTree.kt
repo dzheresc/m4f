@@ -9,14 +9,15 @@ import kotlin.math.pow
 
 /**
  * C(n, k) p^k (1-p)^(n-k), computed in log space: C(n, k) alone overflows a Double near
- * n = 1030 even when the probability itself is tiny.
+ * n = 1030 even when the probability itself is tiny. log C(n, k) is a sum of min(k, n-k)
+ * terms, using C(n, k) = C(n, n-k).
  */
 fun binomialProb(n: Int, k: Int, p: Double): Double {
     if (k < 0 || k > n) return 0.0
     if (p <= 0) return if (k == 0) 1.0 else 0.0
     if (p >= 1) return if (k == n) 1.0 else 0.0
     var logC = 0.0
-    for (i in 0 until k) {
+    for (i in 0 until minOf(k, n - k)) {
         logC += ln((n - i).toDouble()) - ln((i + 1).toDouble())
     }
     return exp(logC + k * ln(p) + (n - k) * ln1p(-p))
@@ -30,13 +31,23 @@ data class BinomialTree(val s0: Double, val u: Double, val d: Double, val r: Dou
     /** E(K(n)) = p u + (1-p) d, the same for every step. */
     fun expectedReturn(p: Double): Double = p * u + (1 - p) * d
 
-    /** E(S(n)) as a sum over the n+1 nodes at step n. */
+    /**
+     * E(S(n)) as a sum over the n+1 nodes at step n, O(n). Each term
+     * C(n, k) p^k (1-p)^(n-k) S(n, k) is built in log space, updating log C(n, k) from k to
+     * k+1, so nothing overflows for large n.
+     */
     fun expectedPrice(n: Int, p: Double): Double {
+        if (p <= 0) return price(n, 0)
+        if (p >= 1) return price(n, n)
+        val logUp = ln(p) + ln1p(u)
+        val logDown = ln1p(-p) + ln1p(d)
+        var logC = 0.0
         var sum = 0.0
         for (k in 0..n) {
-            sum += price(n, k) * binomialProb(n, k, p)
+            sum += exp(logC + k * logUp + (n - k) * logDown)
+            if (k < n) logC += ln((n - k).toDouble()) - ln(k + 1.0)
         }
-        return sum
+        return s0 * sum
     }
 
     /** 3.2.1 Risk-neutral probability exists exactly when d < r < u. */

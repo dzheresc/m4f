@@ -111,6 +111,38 @@ class LibraryTest(unittest.TestCase):
             ],
         )
 
+    def test_fast_trees_match_direct(self) -> None:
+        """The power tables and rolling rows give the same values exactly."""
+        u, d, r = 0.03, -0.025, 0.004
+        prices = binomial_pricing.stock_price_rows(100, u, d, 60)
+        for n in range(61):
+            self.assertEqual(
+                prices(n),
+                [
+                    binomial_pricing.stock_price(100, u, d, n, k)
+                    for k in range(n + 1)
+                ],
+            )
+        for american in (False, True):
+            for is_call in (False, True):
+                tau = 1.5 / 200
+                u = math.exp(0.3 * math.sqrt(tau)) - 1
+                d = math.exp(-0.3 * math.sqrt(tau)) - 1
+                r = math.exp(0.05 * tau) - 1
+                payoff = call(95) if is_call else put(95)
+                tree = binomial_pricing.option_tree(
+                    100, u, d, r, 200, payoff, american
+                )
+                self.assertEqual(
+                    [len(level) for level in tree], list(range(1, 202))
+                )
+                self.assertEqual(
+                    black_scholes.crr_tree_price(
+                        100, 95, 0.05, 0.3, 1.5, 200, is_call, american
+                    ),
+                    tree[0][0],
+                )
+
     def test_black_scholes(self) -> None:
         self.assertAlmostEqual(black_scholes.norm_cdf(0), 0.5, places=14)
         self.assertAlmostEqual(

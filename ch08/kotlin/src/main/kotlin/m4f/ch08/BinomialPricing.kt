@@ -8,7 +8,6 @@ package m4f.ch08
 import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.ln1p
-import kotlin.math.max
 import kotlin.math.pow
 
 typealias Payoff = (Double) -> Double
@@ -47,6 +46,18 @@ fun oneStepReplication(
 }
 
 /**
+ * S(0) (1+u)^k (1+d)^(n-k) for 0 <= k <= n <= N, read from two tables of powers built once: the
+ * same arithmetic as stockPrice without two pow calls per node.
+ */
+class StockPrices(private val s0: Double, u: Double, d: Double, numSteps: Int) {
+    private val up = DoubleArray(numSteps + 1) { (1 + u).pow(it) } // (1+u)^j.
+    private val down = DoubleArray(numSteps + 1) { (1 + d).pow(it) } // (1+d)^j.
+
+    /** S(n) after [k] up moves out of [n]. */
+    operator fun invoke(n: Int, k: Int): Double = s0 * up[k] * down[n - k]
+}
+
+/**
  * Sections 8.1.2-8.1.3: backward induction, values[n][k] at every node.
  * European: V(n) = (p* V(n+1, up) + (1-p*) V(n+1, down)) / (1+r); American: the larger of that
  * and the payoff from exercising now.
@@ -59,18 +70,37 @@ fun optionTree(
     numSteps: Int,
     payoff: Payoff,
     american: Boolean = false,
-): Tree {
+): Tree = optionTreeRows(s0, u, d, r, numSteps, payoff, american).map { it.asList() }
+
+/** The rows of [optionTree] as unboxed arrays. */
+private fun optionTreeRows(
+    s0: Double,
+    u: Double,
+    d: Double,
+    r: Double,
+    numSteps: Int,
+    payoff: Payoff,
+    american: Boolean,
+): Array<DoubleArray> {
     val q = riskNeutralProb(u, d, r)
-    val values = MutableList(numSteps + 1) { emptyList<Double>() }
-    values[numSteps] = (0..numSteps).map { k -> payoff(stockPrice(s0, u, d, numSteps, k)) }
+    val price = StockPrices(s0, u, d, numSteps)
+    val rows = arrayOfNulls<DoubleArray>(numSteps + 1)
+    var later = DoubleArray(numSteps + 1) { k -> payoff(price(numSteps, k)) }
+    rows[numSteps] = later
     for (n in numSteps - 1 downTo 0) {
-        values[n] = (0..n).map { k ->
-            var v = (q * values[n + 1][k + 1] + (1 - q) * values[n + 1][k]) / (1 + r)
-            if (american) v = max(v, payoff(stockPrice(s0, u, d, n, k)))
-            v
+        val next = later
+        later = DoubleArray(n + 1) { k ->
+            val v = (q * next[k + 1] + (1 - q) * next[k]) / (1 + r)
+            if (american) {
+                val e = payoff(price(n, k))
+                if (v < e) e else v // max(v, e) without Math.max's NaN and signed-zero checks.
+            } else {
+                v
+            }
         }
+        rows[n] = later
     }
-    return values
+    return rows.requireNoNulls()
 }
 
 /**
@@ -173,12 +203,14 @@ fun earlyExerciseNodes(
     payoff: Payoff,
 ): List<Pair<Int, Int>> {
     val q = riskNeutralProb(u, d, r)
-    val values = optionTree(s0, u, d, r, numSteps, payoff, true)
+    val values = optionTreeRows(s0, u, d, r, numSteps, payoff, true)
+    val price = StockPrices(s0, u, d, numSteps)
     val nodes = mutableListOf<Pair<Int, Int>>()
     for (n in 0 until numSteps) {
+        val later = values[n + 1]
         for (k in 0..n) {
-            val wait = (q * values[n + 1][k + 1] + (1 - q) * values[n + 1][k]) / (1 + r)
-            if (payoff(stockPrice(s0, u, d, n, k)) > wait) nodes.add(Pair(n, k))
+            val wait = (q * later[k + 1] + (1 - q) * later[k]) / (1 + r)
+            if (payoff(price(n, k)) > wait) nodes.add(Pair(n, k))
         }
     }
     return nodes

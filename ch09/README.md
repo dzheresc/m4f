@@ -30,7 +30,7 @@ distinct from `r`).
 | 9.3.1 Speculating | All-in stock vs calls vs mixtures: terminal values, expected return, breakeven, `P(loss)`, VaR | `allInStock`, `allInCalls`, `mix`, `breakeven`, `probLoss` |
 | 9.3.2 Case study | Bull spread vs calls vs stock under a bullish view | `bullSpread` |
 
-`normInv` and `breakeven` use fixed-count bisection so the three languages agree to the last printed digit.
+`normInv` uses Acklam's rational approximation plus one Halley step, and `breakeven` uses fixed-count bisection, so the three languages agree to the last printed digit.
 
 ## Build & run
 

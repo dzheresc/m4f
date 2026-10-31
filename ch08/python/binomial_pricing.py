@@ -37,6 +37,29 @@ def one_step_replication(
     return x, y, x * s0 + y
 
 
+def stock_price_rows(
+    s0: float, u: float, d: float, num_steps: int
+) -> Callable[[int], list[float]]:
+    """row(n) = [S(0) (1+u)^k (1+d)^(n-k) for k = 0..n], n <= N.
+
+    Read from two tables of powers built once: the same arithmetic as
+    stock_price without two powers per node.
+    """
+    up = [(1 + u) ** j for j in range(num_steps + 1)]
+    down = [(1 + d) ** j for j in range(num_steps + 1)]
+
+    def row(n: int) -> list[float]:
+        # zip stops after n+1 entries: down[n::-1] is (1+d)^n, ..., (1+d)^0.
+        return [s0 * a * b for a, b in zip(up, down[n::-1])]
+
+    return row
+
+
+def at_least(values: list[float], floors: list[float]) -> list[float]:
+    """[max(v, f)] elementwise, keeping v on a tie, without a call per entry."""
+    return [v if v >= f else f for v, f in zip(values, floors)]
+
+
 # Sections 8.1.2-8.1.3: backward induction.
 def option_tree(
     s0: float,
@@ -53,21 +76,19 @@ def option_tree(
     the larger of that and the payoff from exercising now.
     """
     q = risk_neutral_prob(u, d, r)
-    values = [
-        [
-            payoff(stock_price(s0, u, d, num_steps, k))
-            for k in range(num_steps + 1)
-        ]
-    ]
+    prices = stock_price_rows(s0, u, d, num_steps)
+    later = [payoff(x) for x in prices(num_steps)]
+    values = [later]  # From level N down to level 0.
     for n in range(num_steps - 1, -1, -1):
-        later = values[0]
-        level = []
-        for k in range(n + 1):
-            v = (q * later[k + 1] + (1 - q) * later[k]) / (1 + r)
-            if american:
-                v = max(v, payoff(stock_price(s0, u, d, n, k)))
-            level.append(v)
-        values.insert(0, level)
+        level = [
+            (q * v_up + (1 - q) * v_down) / (1 + r)
+            for v_down, v_up in zip(later, later[1:])
+        ]
+        if american:
+            level = at_least(level, [payoff(x) for x in prices(n)])
+        values.append(level)
+        later = level
+    values.reverse()
     return values
 
 
@@ -162,12 +183,12 @@ def early_exercise_nodes(
     """Nodes (n, k), n < N, where exercising beats waiting."""
     q = risk_neutral_prob(u, d, r)
     values = option_tree(s0, u, d, r, num_steps, payoff, american=True)
+    prices = stock_price_rows(s0, u, d, num_steps)
     nodes = []
     for n in range(num_steps):
-        for k in range(n + 1):
-            wait = (q * values[n + 1][k + 1] + (1 - q) * values[n + 1][k]) / (
-                1 + r
-            )
-            if payoff(stock_price(s0, u, d, n, k)) > wait:
+        later = values[n + 1]
+        for k, x in enumerate(prices(n)):
+            wait = (q * later[k + 1] + (1 - q) * later[k]) / (1 + r)
+            if payoff(x) > wait:
                 nodes.append((n, k))
     return nodes

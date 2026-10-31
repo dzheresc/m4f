@@ -35,6 +35,16 @@ class Ch03Test {
         // Large n: C(2000, 1000) alone overflows a Double.
         assertNear(1.0, (0..2000).sumOf { binomialProb(2000, it, 0.6) })
         assertNear(0.017839011, binomialProb(2000, 1000, 0.5))
+        val longTree = BinomialTree(100.0, 0.02, -0.01, 0.005)
+        // E(S(n)) = S(0) (1 + E K)^n, and the node-by-node sum.
+        assertNear(
+            1.0,
+            longTree.expectedPrice(2000, 0.6) / (100 * (1 + 0.6 * 0.02 + 0.4 * -0.01).pow(2000)),
+        )
+        assertNear(
+            (0..50).sumOf { longTree.price(50, it) * binomialProb(50, it, 0.6) },
+            longTree.expectedPrice(50, 0.6),
+        )
         val tree = BinomialTree(60.0, 0.2, -0.1, 0.05)
         val q = tree.riskNeutralProb()
         assertTrue(tree.isArbitrageFree())

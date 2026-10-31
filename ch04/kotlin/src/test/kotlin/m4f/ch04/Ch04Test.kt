@@ -84,5 +84,28 @@ class Ch04Test {
                 assertNear(v0, expectedDiscountedValue(100.0, 0.10, -0.05, 0.03, 4, v0, rule, q))
             }
         }
+        // The depth-first walk against a direct enumeration of all paths, under a real-world p.
+        val steps = 6
+        for (rule in rules) {
+            var expected = 0.0
+            for (mask in 0 until (1 shl steps)) {
+                val moves = List(steps) { (mask shr it) and 1 }
+                val s = arrayListOf(100.0)
+                val a = arrayListOf(1.0)
+                val x = arrayListOf<Double>()
+                var weight = 1.0
+                for (n in 1..steps) {
+                    s.add(s.last() * if (moves[n - 1] == 1) 1.10 else 0.95)
+                    a.add(a.last() * 1.03)
+                    x.add(rule(n, moves.subList(0, n - 1)))
+                    weight *= if (moves[n - 1] == 1) 0.6 else 0.4
+                }
+                expected += weight * selfFinancing(100.0, s, a, x).values[steps] / a[steps]
+            }
+            assertNear(
+                expected,
+                expectedDiscountedValue(100.0, 0.10, -0.05, 0.03, steps, 100.0, rule, 0.6),
+            )
+        }
     }
 }

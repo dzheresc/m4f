@@ -75,8 +75,20 @@ fun floor(rates: Lattice, probs: Lattice, tau: Double, numSteps: Int, strike: Do
         max(strike - floatingRate(rates, tau, n, k), 0.0)
     }
 
-/** Value at 0 of the single caplet fixed at [fixing] and paid at fixing + 1. */
-fun caplet(rates: Lattice, probs: Lattice, tau: Double, fixing: Int, strike: Double): Double =
-    pricePayments(rates, probs, tau, fixing + 1) { n, k ->
-        if (n == fixing) max(floatingRate(rates, tau, n, k) - strike, 0.0) else 0.0
-    }[0][0]
+/**
+ * Value at 0 of the single caplet fixed at [fixing] and paid at fixing + 1. Only level [fixing]
+ * pays, so this rolls one row back from there instead of building the whole pricePayments()
+ * lattice; the result is the same.
+ */
+fun caplet(rates: Lattice, probs: Lattice, tau: Double, fixing: Int, strike: Double): Double {
+    val v = DoubleArray(fixing + 1) { k ->
+        oneStepPrice(rates[fixing][k], tau) * max(floatingRate(rates, tau, fixing, k) - strike, 0.0)
+    }
+    for (n in fixing - 1 downTo 0) {
+        for (k in 0..n) {
+            val p = probs[n][k]
+            v[k] = oneStepPrice(rates[n][k], tau) * (p * v[k + 1] + (1 - p) * v[k])
+        }
+    }
+    return v[0]
+}
