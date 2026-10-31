@@ -83,6 +83,15 @@ Fuchsia) follows the community standard, so "Google style" here means:
 - Hot loops use half-open ranges (`1..n + 1`), not `1..=n`: an inclusive
   range keeps an extra flag that LLVM does not optimise away (it cost 40%
   more instructions in chapter 2's yield solver).
+- Inner loops over slices iterate (`zip`, `windows`, `iter().rev()`) or
+  index slices that were cut to the loop's length first
+  (`let row = &mut values[..n + 2]`), so that LLVM can drop the bounds
+  checks. Indexing a longer `Vec` by a computed index keeps a check per
+  access, and the check also stops LLVM from vectorising the loop (2–2.5x
+  the C++ instructions in chapters 4, 5 and 8 before this rule).
+- `#[inline(always)]` is used only where GCC inlines the C++ and LLVM does
+  not, and inlining changes the work done: a caller passing a constant
+  `Greek` to `total_greek` lets the unused Greeks be dropped (chapter 9).
 - Report text is written with `write!` into any `fmt::Write`, so the binary
   prints it and the tests and benchmarks capture it in a `String`.
 
