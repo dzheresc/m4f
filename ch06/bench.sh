@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the C++ microbenchmarks in Release mode and runs them.
+# Runs the microbenchmarks; the C++ ones are built in Release mode first.
 #   ./bench.sh                 wall-clock timings (Google Benchmark)
 #   ./bench.sh --callgrind     also instruction counts per iteration (valgrind)
 # Extra arguments go to the benchmark binary, e.g. --benchmark_filter=BestCycle.
