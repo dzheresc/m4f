@@ -32,24 +32,53 @@ inline double ImpliedRate(double bond_price, double maturity,
 
 // 2.2.2 Coupon bonds: n coupons C at the end of each period, face value F
 // paid with the last coupon; y is the yield per period.
+//
+// The coupons form a geometric series, so
+//   price = F v + C (1 - v) / y,   v = (1+y)^-n,
+// with 1 - v computed as -expm1(-n log1p(y)) to stay accurate for small y.
 inline double CouponBondPrice(double face, double coupon, int n, double y) {
-  double price = face * std::pow(1 + y, -n);
-  for (int k = 1; k <= n; ++k) price += coupon * std::pow(1 + y, -k);
-  return price;
+  if (y == 0) return face + coupon * n;
+  const double log_v = -n * std::log1p(y);
+  return face * std::exp(log_v) - coupon * std::expm1(log_v) / y;
 }
 
-// Per-period yield y with CouponBondPrice(face, coupon, n, y) = price, found by
-// bisection on [lo, hi] (the price is strictly decreasing in y).
+// Derivative of CouponBondPrice in y:
+//   -(n F v + C sum_k k (1+y)^-k) / (1+y).
+inline double CouponBondPriceSlope(double face, double coupon, int n,
+                                   double y) {
+  const double discount = 1 / (1 + y);
+  double factor = 1.0;
+  double weighted = 0.0;
+  for (int k = 1; k <= n; ++k) {
+    factor *= discount;
+    weighted += k * factor;
+  }
+  return -(n * face * factor + coupon * weighted) * discount;
+}
+
+// Per-period yield y in [lo, hi] with CouponBondPrice(face, coupon, n, y) =
+// price. Newton's method, kept inside a shrinking bisection bracket (the price
+// is strictly decreasing in y), so it falls back to bisection whenever a
+// Newton step would leave the bracket and returns the nearer end when the
+// price is out of range.
 inline double YieldToMaturity(double price, double face, double coupon, int n,
                               double lo = -0.99, double hi = 10.0,
                               double tol = 1e-12) {
+  // Start from the textbook approximation (C + (F - P) / n) / P.
+  double y = (coupon + (face - price) / n) / price;
+  if (!(y > lo && y < hi)) y = (lo + hi) / 2;
   for (int iteration = 0; iteration < 200 && hi - lo >= tol; ++iteration) {
-    const double mid = (lo + hi) / 2;
-    if (CouponBondPrice(face, coupon, n, mid) > price) {
-      lo = mid;
+    const double excess = CouponBondPrice(face, coupon, n, y) - price;
+    if (excess == 0) return y;
+    if (excess > 0) {
+      lo = y;
     } else {
-      hi = mid;
+      hi = y;
     }
+    double next = y - excess / CouponBondPriceSlope(face, coupon, n, y);
+    if (!(next > lo && next < hi)) next = (lo + hi) / 2;
+    if (std::abs(next - y) < tol) return next;
+    y = next;
   }
   return (lo + hi) / 2;
 }

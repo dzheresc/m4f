@@ -60,6 +60,21 @@ void TestLibraryIdentities(Checker& t) {
                 0.12, 1e-8),
            "YTM");
   t.Expect(Near(CouponBondPrice(100, 10, 3, 0.10), 100), "par bond");
+
+  // C++ only: the closed-form price and the Newton solver against a direct
+  // sum, including a zero and a tiny yield and a price out of range.
+  for (int n : {1, 3, 60, 360}) {
+    for (double y : {-0.5, -1e-9, 0.0, 1e-9, 0.004, 0.12, 2.0}) {
+      double direct = 100 * std::pow(1 + y, -n);
+      for (int k = 1; k <= n; ++k) direct += 5 * std::pow(1 + y, -k);
+      t.Expect(Near(CouponBondPrice(100, 5, n, y), direct, 1e-9 * direct),
+               "closed-form coupon bond price");
+      t.Expect(Near(YieldToMaturity(direct, 100, 5, n), y, 1e-9),
+               "YTM round trip");
+    }
+  }
+  t.Expect(Near(YieldToMaturity(1e9, 100, 5, 3), -0.99, 1e-9),
+           "YTM clamps to lo");
 }
 
 void TestReportValues(Checker& t) {

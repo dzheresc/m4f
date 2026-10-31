@@ -53,3 +53,22 @@ which is exact and repeatable.
 - `MoneyMarketRollover` is a chain of dependent divisions, about 4 ns per step
   at 1024 steps. Not worth changing.
 - `PrintReport` is dominated by `std::format`.
+
+## After: closed-form coupon bond price, Newton yield
+
+`CouponBondPrice` now uses the geometric-series closed form (one `log1p`, one
+`exp`, one `expm1`), and `YieldToMaturity` uses Newton's method inside the
+bisection bracket, starting from the usual yield approximation. The results
+agree with a direct sum to 1e-9 relative (new tests cover zero, tiny,
+negative and large yields and an out-of-range price), and the report is
+byte-identical.
+
+| Benchmark | Time before | Time after | Ir before | Ir after | Ir ratio |
+|---|---:|---:|---:|---:|---:|
+| `BM_CouponBondPrice/3` | 46 ns | 21 ns | 578 | 189 | 3.1x |
+| `BM_CouponBondPrice/30` | 383 ns | 31 ns | 4,412 | 218 | 20x |
+| `BM_CouponBondPrice/360` | 4.7 us | 29 ns | 51,272 | 207 | 248x |
+| `BM_YieldToMaturity/3` | 3.2 us | 214 ns | 26,518 | 1,001 | 26x |
+| `BM_YieldToMaturity/30` | 17 us | 313 ns | 196,402 | 2,310 | 85x |
+| `BM_YieldToMaturity/360` | 187 us | 1.7 us | 2,274,043 | 11,937 | 191x |
+| `BM_PrintReport` | 9.4 us | 9.4 us | 124,224 | 104,500 | 1.2x |
