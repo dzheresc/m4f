@@ -79,15 +79,22 @@ inline Lattice Floor(const Lattice& rates, const Lattice& probs, double tau,
 }
 
 // Value at 0 of the single caplet fixed at `fixing` and paid at fixing + 1.
+// Only level `fixing` pays, so this rolls one row back from there instead of
+// building the whole PricePayments() lattice; the result is the same.
 inline double Caplet(const Lattice& rates, const Lattice& probs, double tau,
                      int fixing, double strike) {
-  return PricePayments(
-      rates, probs, tau, fixing + 1,
-      [&rates, tau, strike, fixing](int n, int k) {
-        return n == fixing
-                   ? std::max(FloatingRate(rates, tau, n, k) - strike, 0.0)
-                   : 0.0;
-      })[0][0];
+  std::vector<double> v(fixing + 1);
+  for (int k = 0; k <= fixing; ++k) {
+    v[k] = OneStepPrice(rates[fixing][k], tau) *
+           std::max(FloatingRate(rates, tau, fixing, k) - strike, 0.0);
+  }
+  for (int n = fixing - 1; n >= 0; --n) {
+    for (int k = 0; k <= n; ++k) {
+      const double p = probs[n][k];
+      v[k] = OneStepPrice(rates[n][k], tau) * (p * v[k + 1] + (1 - p) * v[k]);
+    }
+  }
+  return v[0];
 }
 
 }  // namespace m4f::ch11
