@@ -51,10 +51,31 @@ def implied_rate(
 # 2.2.2 Coupon bonds: n coupons C at the end of each period, face value F paid
 # with the last coupon; y is the yield per period.
 def coupon_bond_price(face: float, coupon: float, n: int, y: float) -> float:
-    price = face * (1 + y) ** -n
+    """Price F v + C (1 - v) / y with v = (1+y)^-n.
+
+    The coupons form a geometric series; 1 - v is computed as
+    -expm1(-n log1p(y)) to stay accurate for small y.
+    """
+    if y == 0:
+        return face + coupon * n
+    log_v = -n * math.log1p(y)
+    return face * math.exp(log_v) - coupon * math.expm1(log_v) / y
+
+
+def coupon_bond_price_slope(
+    face: float, coupon: float, n: int, y: float
+) -> float:
+    """Derivative of coupon_bond_price in y.
+
+    -(n F v + C sum_k k (1+y)^-k) / (1+y).
+    """
+    discount = 1 / (1 + y)
+    factor = 1.0
+    weighted = 0.0
     for k in range(1, n + 1):
-        price += coupon * (1 + y) ** -k
-    return price
+        factor *= discount
+        weighted += k * factor
+    return -(n * face * factor + coupon * weighted) * discount
 
 
 def yield_to_maturity(
@@ -66,20 +87,34 @@ def yield_to_maturity(
     hi: float = 10.0,
     tol: float = 1e-12,
 ) -> float:
-    """Per-period yield y with coupon_bond_price(face, coupon, n, y) == price.
+    """Per-period yield y in [lo, hi] with coupon_bond_price(...) == price.
 
-    Uses bisection on [lo, hi]; the price is strictly decreasing in y. Stops
-    once the bracket is narrower than `tol`. `n` is the number of coupon
-    periods.
+    Newton's method, kept inside a shrinking bisection bracket (the price is
+    strictly decreasing in y), so it falls back to bisection whenever a Newton
+    step would leave the bracket and returns the nearer end when the price is
+    out of range. Stops once the bracket or the Newton step is narrower than
+    `tol`. `n` is the number of coupon periods.
     """
+    # Start from the textbook approximation (C + (F - P) / n) / P.
+    y = (coupon + (face - price) / n) / price
+    if not lo < y < hi:
+        y = (lo + hi) / 2
     for _ in range(200):
-        mid = (lo + hi) / 2
-        if coupon_bond_price(face, coupon, n, mid) > price:
-            lo = mid
-        else:
-            hi = mid
         if hi - lo < tol:
             break
+        excess = coupon_bond_price(face, coupon, n, y) - price
+        if excess == 0:
+            return y
+        if excess > 0:
+            lo = y
+        else:
+            hi = y
+        nxt = y - excess / coupon_bond_price_slope(face, coupon, n, y)
+        if not lo < nxt < hi:
+            nxt = (lo + hi) / 2
+        if abs(nxt - y) < tol:
+            return nxt
+        y = nxt
     return (lo + hi) / 2
 
 

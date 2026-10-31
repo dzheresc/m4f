@@ -84,6 +84,30 @@ class LibraryTest(unittest.TestCase):
             money_market.coupon_bond_price(100, 10, 3, 0.10), 100
         )
 
+    def test_closed_form_and_newton(self) -> None:
+        """Closed-form price and Newton solver against a direct sum.
+
+        Includes a zero and a tiny yield, and a price out of range.
+        """
+        for n in (1, 3, 60, 360):
+            for y in (-0.5, -1e-9, 0.0, 1e-9, 0.004, 0.12, 2.0):
+                direct = 100 * (1 + y) ** -n
+                for k in range(1, n + 1):
+                    direct += 5 * (1 + y) ** -k
+                self.assertAlmostEqual(
+                    money_market.coupon_bond_price(100, 5, n, y),
+                    direct,
+                    delta=1e-9 * direct,
+                )
+                self.assertAlmostEqual(
+                    money_market.yield_to_maturity(direct, 100, 5, n),
+                    y,
+                    delta=1e-9,
+                )
+        self.assertAlmostEqual(
+            money_market.yield_to_maturity(1e9, 100, 5, 3), -0.99, delta=1e-9
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

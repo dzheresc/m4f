@@ -23,7 +23,7 @@ ch02/
 | 2.1.4 Continuous compounding | `V(t) = e^(tr) P` | `continuousValue`, `continuousPresentValue`, `continuousEffectiveRate` |
 | 2.1.5 Comparing methods | equal growth factors | `continuousFromPeriodic`, `periodicFromContinuous`, `periodicFromPeriodic` |
 | 2.2.1 Zero-coupon bonds | `B(0,T) = (1+r/m)^(-Tm)` or `e^(-rT)` | `zeroCouponPrice`, `impliedRate` |
-| 2.2.2 Coupon bonds | `Σ C(1+y)^-k + F(1+y)^-n` | `couponBondPrice`, `yieldToMaturity` (bisection; C++ uses Newton inside the bisection bracket) |
+| 2.2.2 Coupon bonds | `Σ C(1+y)^-k + F(1+y)^-n` | `couponBondPrice` (closed-form geometric sum), `yieldToMaturity` (Newton inside the bisection bracket) |
 | 2.2.3 Money market account | `A(t) = A(0) e^(rt)`, rolling over zero-coupon bonds | `moneyMarketValue`, `moneyMarketRollover` |
 
 ## Build & run
