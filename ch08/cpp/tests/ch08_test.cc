@@ -82,6 +82,18 @@ void TestFormulas(Checker& t) {
     }
   }
   t.Expect(Near(BinomialSum(0.3, 6, 0), 1), "binomial sum");
+  // Large N: C(2000, 1000) alone overflows a double.
+  constexpr int kBig = 2000;
+  const double tau = 1.0 / kBig;
+  const double u = std::exp(0.2 * std::sqrt(tau)) - 1;
+  const double d = std::exp(-0.2 * std::sqrt(tau)) - 1;
+  const double r = std::exp(0.05 * tau) - 1;
+  t.Expect(Near(BinomialSum(0.5, kBig, 0), 1), "large-N binomial sum");
+  const double crr = CrrCall(100, 100, u, d, r, kBig).price;
+  t.Expect(Near(crr, EuropeanPriceSum(100, u, d, r, kBig, Call(100)), 1e-9),
+           "large-N CRR formula = sum");
+  t.Expect(Near(crr, BsCall(100, 100, 0.05, 0.2, 1), 1e-2),
+           "large-N CRR formula near Black-Scholes");
 }
 
 // Section 8.2.

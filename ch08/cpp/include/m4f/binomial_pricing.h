@@ -40,21 +40,44 @@ inline Replication OneStepReplication(double s0, double u, double d, double r,
   return {x, y, x * s0 + y};
 }
 
+// S(0) (1+u)^k (1+d)^(n-k) for 0 <= k <= n <= N, read from two tables of
+// powers built once: the same arithmetic as StockPrice without two std::pow
+// calls per node.
+class StockPrices {
+ public:
+  StockPrices(double s0, double u, double d, int num_steps) : s0_(s0) {
+    up_.reserve(num_steps + 1);
+    down_.reserve(num_steps + 1);
+    for (int j = 0; j <= num_steps; ++j) {
+      up_.push_back(std::pow(1 + u, j));
+      down_.push_back(std::pow(1 + d, j));
+    }
+  }
+  double operator()(int n, int k) const { return s0_ * up_[k] * down_[n - k]; }
+
+ private:
+  double s0_;
+  std::vector<double> up_;    // (1+u)^j.
+  std::vector<double> down_;  // (1+d)^j.
+};
+
 // Sections 8.1.2-8.1.3: backward induction, values[n][k] at every node.
 // European: V(n) = (p* V(n+1, up) + (1-p*) V(n+1, down)) / (1+r); American:
 // the larger of that and the payoff from exercising now.
 inline Tree OptionTree(double s0, double u, double d, double r, int num_steps,
                        const Payoff& payoff, bool american = false) {
   const double q = RiskNeutralProb(u, d, r);
+  const StockPrices price(s0, u, d, num_steps);
   Tree values(num_steps + 1);
   for (int k = 0; k <= num_steps; ++k) {
-    values[num_steps].push_back(payoff(StockPrice(s0, u, d, num_steps, k)));
+    values[num_steps].push_back(payoff(price(num_steps, k)));
   }
   for (int n = num_steps - 1; n >= 0; --n) {
+    values[n].reserve(n + 1);
     for (int k = 0; k <= n; ++k) {
       double v =
           (q * values[n + 1][k + 1] + (1 - q) * values[n + 1][k]) / (1 + r);
-      if (american) v = std::max(v, payoff(StockPrice(s0, u, d, n, k)));
+      if (american) v = std::max(v, payoff(price(n, k)));
       values[n].push_back(v);
     }
   }
@@ -75,28 +98,43 @@ inline std::pair<double, double> ReplicatingPosition(double s0, double u,
   return {x, y};
 }
 
+// Calls f(k, w_k) for k = 0..N with w_k = C(N,k) p^k (1-p)^(N-k). The weights
+// are built in log space, updating log C(N, k) from k to k+1: C(N, k) on its
+// own passes DBL_MAX near N = 1030 even when w_k is tiny.
+template <typename F>
+void ForEachBinomialWeight(double p, int num_steps, F f) {
+  if (p <= 0 || p >= 1) {
+    for (int k = 0; k <= num_steps; ++k) {
+      f(k, k == (p <= 0 ? 0 : num_steps) ? 1.0 : 0.0);
+    }
+    return;
+  }
+  const double log_p = std::log(p);
+  const double log_q = std::log1p(-p);
+  double log_c = 0.0;
+  for (int k = 0; k <= num_steps; ++k) {
+    f(k, std::exp(log_c + k * log_p + (num_steps - k) * log_q));
+    if (k < num_steps) log_c += std::log(num_steps - k) - std::log(k + 1.0);
+  }
+}
+
 // P(at least m up moves out of N) = sum_{k >= m} C(N,k) p^k (1-p)^(N-k).
 inline double BinomialSum(double p, int num_steps, int m) {
   double total = 0.0;
-  double c = 1.0;
-  for (int k = 0; k <= num_steps; ++k) {
-    if (k >= m) total += c * std::pow(p, k) * std::pow(1 - p, num_steps - k);
-    c = c * (num_steps - k) / (k + 1);
-  }
+  ForEachBinomialWeight(p, num_steps, [&](int k, double w) {
+    if (k >= m) total += w;
+  });
   return total;
 }
 
 // Section 8.1.3: (1+r)^-N sum_k C(N,k) p*^k (1-p*)^(N-k) f(S(N, k)).
 inline double EuropeanPriceSum(double s0, double u, double d, double r,
                                int num_steps, const Payoff& payoff) {
-  const double q = RiskNeutralProb(u, d, r);
   double total = 0.0;
-  double c = 1.0;
-  for (int k = 0; k <= num_steps; ++k) {
-    total += c * std::pow(q, k) * std::pow(1 - q, num_steps - k) *
-             payoff(StockPrice(s0, u, d, num_steps, k));
-    c = c * (num_steps - k) / (k + 1);
-  }
+  ForEachBinomialWeight(
+      RiskNeutralProb(u, d, r), num_steps, [&](int k, double w) {
+        total += w * payoff(StockPrice(s0, u, d, num_steps, k));
+      });
   return total * std::pow(1 + r, -num_steps);
 }
 
@@ -127,12 +165,13 @@ inline std::vector<std::pair<int, int>> EarlyExerciseNodes(
     const Payoff& payoff) {
   const double q = RiskNeutralProb(u, d, r);
   const Tree values = OptionTree(s0, u, d, r, num_steps, payoff, true);
+  const StockPrices price(s0, u, d, num_steps);
   std::vector<std::pair<int, int>> nodes;
   for (int n = 0; n < num_steps; ++n) {
     for (int k = 0; k <= n; ++k) {
       const double wait =
           (q * values[n + 1][k + 1] + (1 - q) * values[n + 1][k]) / (1 + r);
-      if (payoff(StockPrice(s0, u, d, n, k)) > wait) nodes.emplace_back(n, k);
+      if (payoff(price(n, k)) > wait) nodes.emplace_back(n, k);
     }
   }
   return nodes;

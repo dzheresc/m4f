@@ -5,6 +5,7 @@ money market growing at r per step, and p* = (r - d) / (u - d). Payoffs are
 functions of the final stock price.
 """
 
+import math
 from collections.abc import Callable
 
 Payoff = Callable[[float], float]
@@ -90,14 +91,32 @@ def replicating_position(
     return x, y
 
 
+def binomial_weights(p: float, num_steps: int) -> list[float]:
+    """C(N,k) p^k (1-p)^(N-k) for k = 0..N.
+
+    Built in log space, updating log C(N, k) from k to k+1: C(N, k) on its own
+    overflows a float near N = 1030 even when the weight is tiny.
+    """
+    if p <= 0 or p >= 1:
+        hit = 0 if p <= 0 else num_steps
+        return [1.0 if k == hit else 0.0 for k in range(num_steps + 1)]
+    log_p = math.log(p)
+    log_q = math.log1p(-p)
+    log_c = 0.0
+    weights = []
+    for k in range(num_steps + 1):
+        weights.append(math.exp(log_c + k * log_p + (num_steps - k) * log_q))
+        if k < num_steps:
+            log_c += math.log(num_steps - k) - math.log(k + 1)
+    return weights
+
+
 def binomial_sum(p: float, num_steps: int, m: int) -> float:
     """P(at least m up moves out of N) = sum_{k >= m} C(N,k) p^k (1-p)^(N-k)."""
     total = 0.0
-    c = 1.0
-    for k in range(num_steps + 1):
+    for k, w in enumerate(binomial_weights(p, num_steps)):
         if k >= m:
-            total += c * p**k * (1 - p) ** (num_steps - k)
-        c = c * (num_steps - k) / (k + 1)
+            total += w
     return total
 
 
@@ -107,15 +126,8 @@ def european_price_sum(
     """Section 8.1.3: (1+r)^-N sum_k C(N,k) p*^k (1-p*)^(N-k) f(S(N, k))."""
     q = risk_neutral_prob(u, d, r)
     total = 0.0
-    c = 1.0
-    for k in range(num_steps + 1):
-        total += (
-            c
-            * q**k
-            * (1 - q) ** (num_steps - k)
-            * payoff(stock_price(s0, u, d, num_steps, k))
-        )
-        c = c * (num_steps - k) / (k + 1)
+    for k, w in enumerate(binomial_weights(q, num_steps)):
+        total += w * payoff(stock_price(s0, u, d, num_steps, k))
     return total * (1 + r) ** -num_steps
 
 
