@@ -7,10 +7,11 @@ parallel implementations with the same API, and all three print the same output 
 
 ```
 ch10/
-  cpp/      C++20, CMake        include/m4f/{bonds,term_structure}.hpp (header-only), src/report.cpp, tests/
+  cpp/      C++20, CMake        include/m4f/{bonds,term_structure}.h (header-only), src/report.cc, tests/
   kotlin/   Kotlin 2.1, Gradle  src/main/kotlin/m4f/ch10/{Bonds,TermStructure,Report}.kt, src/test/
-  python/   Python 3.10+        bonds.py, term_structure.py, ch10.py, test_ch10.py
+  python/   Python 3.10+        bonds.py, term_structure.py, ch10.py, ch10_test.py
   run_all.sh                    build + test + run all three and diff against expected_output.txt
+  check_style.sh                clang-format, cpplint, pyink, pylint, ktlint (whichever are installed)
 ```
 
 All rates are continuously compounded. A bond is a list of cash flows `(t_i, C_i)`.
@@ -30,5 +31,12 @@ All rates are continuously compounded. A bond is a list of cash flows `(t_i, C_i
 ./run_all.sh
 cmake -S cpp -B cpp/build && cmake --build cpp/build -j && ctest --test-dir cpp/build && cpp/build/ch10
 cd kotlin && ./gradlew test run
-cd python && python3 -m unittest test_ch10 && python3 ch10.py
+cd python && python3 -m unittest ch10_test && python3 ch10.py
 ```
+
+## Code style
+
+The code follows the Google style guides for C++ and Python and the Android Kotlin style guide;
+see [STYLE.md](../STYLE.md). API names in this README are the Kotlin ones: C++ uses PascalCase
+for functions (`riskNeutralProb` is `RiskNeutralProb`) and Python uses snake_case. Run
+`./check_style.sh` to check, or `./check_style.sh --fix` to reformat.
