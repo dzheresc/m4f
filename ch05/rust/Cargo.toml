@@ -1,0 +1,45 @@
+[package]
+name = "m4f_ch05"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.86"
+description = "Mathematics for Finance, chapter 5: portfolio management"
+publish = false
+autobenches = false
+autoexamples = false
+
+[lib]
+name = "m4f_ch05"
+
+[[bin]]
+name = "ch05"
+path = "src/main.rs"
+
+[dev-dependencies]
+criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "ch05_benchmark"
+harness = false
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+
+# Same optimisation level as the C++ Release build (-O3). Most of the C++
+# code lives in headers, so GCC sees every function body at its call site.
+# The Rust benchmarks, tests and binary are separate crates from the
+# library, and rustc only inlines across crates with #[inline] or LTO; fat
+# LTO with one codegen unit gives the same whole-program view.
+[profile.release]
+codegen-units = 1
+lto = "fat"
+
+[profile.bench]
+debug = true
+
+[[example]]
+name = "bench_ir"
