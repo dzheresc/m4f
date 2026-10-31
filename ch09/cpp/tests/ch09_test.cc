@@ -45,6 +45,34 @@ void TestNormal(Checker& t) {
            "pdf(0)");
 }
 
+// NormInv against the bisection it replaced, across the center, both tails
+// and the region boundaries of the rational approximation. Near p = 1 the
+// inverse is only defined to within one ulp of p divided by the density, so
+// the tolerance includes that term.
+void TestNormInvAgainstBisection(Checker& t) {
+  auto bisect = [](double p) {
+    double lo = -40.0, hi = 40.0;
+    for (int i = 0; i < 200; ++i) {
+      const double mid = (lo + hi) / 2;
+      (NormCdf(mid) < p ? lo : hi) = mid;
+    }
+    return (lo + hi) / 2;
+  };
+  for (double p :
+       {1e-100, 1e-20, 1e-10, 1e-4, 0.001, 0.01, 0.02425, 0.0243, 0.1, 0.3, 0.5,
+        0.7, 0.95, 0.975, 0.97575, 0.99, 0.999, 0.999999}) {
+    const double x = NormInv(p);
+    const double ref = bisect(p);
+    const double tol = 1e-13 + 4e-16 / NormPdf(ref);
+    t.Expect(std::abs(x - ref) <= tol, "NormInv vs bisection");
+    t.Expect(std::abs(NormCdf(x) - p) <= 1e-14 * std::max(p, 1e-2),
+             "N(NormInv(p)) == p");
+  }
+  t.Expect(NormInv(0.0) == -40.0 && NormInv(1.0) == 40.0, "NormInv ends");
+  // Beyond NormCdf's range (|x| > 37) the result stays finite and ordered.
+  t.Expect(NormInv(1e-300) < -37 && NormInv(1e-300) > -40, "NormInv(1e-300)");
+}
+
 // Greeks against finite differences.
 void TestGreeks(Checker& t) {
   const double h = 1e-4;
@@ -183,6 +211,7 @@ void TestStrategies(Checker& t) {
 int RunAllTests() {
   Checker t;
   TestNormal(t);
+  TestNormInvAgainstBisection(t);
   TestGreeks(t);
   TestHedges(t);
   TestLognormal(t);
