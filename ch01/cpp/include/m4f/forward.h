@@ -2,7 +2,9 @@
 // contracts (z > 0 long, z < 0 short) with forward price F to x shares and
 // y bonds; entering a forward costs nothing at t=0.
 //
-// The forward price F is called `delivery_price` below.
+// The forward price F is called `delivery_price` below. Other names follow the
+// book, lower-cased: s0 = S(0), s1 = S(1), a0 = A(0), a1 = A(1), r = the
+// risk-free return over the step.
 #ifndef M4F_CH01_FORWARD_H_
 #define M4F_CH01_FORWARD_H_
 

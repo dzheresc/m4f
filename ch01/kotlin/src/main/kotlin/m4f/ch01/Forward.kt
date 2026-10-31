@@ -1,6 +1,7 @@
 // Section 1.5: forward contracts. A portfolio (x, y, z) adds z forward contracts (z > 0 long,
 // z < 0 short) with forward price F to x shares and y bonds; entering a forward costs nothing at
-// t=0. The forward price F is called deliveryPrice below.
+// t=0. The forward price F is called deliveryPrice below. Other names follow the book:
+// s0 = S(0), s1 = S(1), a0 = A(0), a1 = A(1), r = the risk-free return over the step.
 package m4f.ch01
 
 /** [x] shares, [y] bonds and [z] forward contracts. */
