@@ -18,4 +18,4 @@ Code for Capinski & Zastawniak, *Mathematics for Finance*. Each chapter is imple
 
 Run `./run_all.sh` inside a chapter to build, test and diff all three languages.
 
-Code style: Google style guides (Android style for Kotlin), see [STYLE.md](STYLE.md). Chapter 1 is converted so far.
+Code style: Google style guides (Android style for Kotlin), see [STYLE.md](STYLE.md). Chapters are converted one at a time; a converted chapter has a `check_style.sh`.

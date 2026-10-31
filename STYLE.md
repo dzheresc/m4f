@@ -1,15 +1,15 @@
 # Code style
 
-The code follows Google's style guides. Chapter 1 has been converted; the other
-chapters still use the older house style and can be converted the same way.
+The code follows Google's style guides. Chapters are converted one at a time;
+a converted chapter has its own `check_style.sh` and the configs listed below.
 
-| Language | Guide | Formatter / linter config (in `ch01/`) |
+| Language | Guide | Formatter / linter config (in each chapter) |
 |---|---|---|
 | C++ | [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) | `.clang-format` (`BasedOnStyle: Google`), `cpp/CPPLINT.cfg` |
 | Python | [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html) | `pyproject.toml` (pyink), `python/pylintrc` (Google's own) |
 | Kotlin | [Android Kotlin style guide](https://developer.android.com/kotlin/style-guide) (Google has no general Kotlin guide) | `.editorconfig` (`ktlint_code_style = android_studio`) |
 
-`ch01/check_style.sh` runs every tool that is installed; `--fix` reformats.
+`chNN/check_style.sh` runs every tool that is installed; `--fix` reformats.
 
 ## What changed in practice
 

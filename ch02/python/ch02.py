@@ -1,84 +1,164 @@
 #!/usr/bin/env python3
-"""Chapter 2 worked examples. Output is byte-identical to the C++ and Kotlin versions.
+"""Chapter 2 worked examples.
 
-The numbers are illustrative (not the book's own); the formulas follow the book.
+The output is byte-identical to the C++ and Kotlin versions. The numbers are
+illustrative (not the book's own); the formulas follow the book.
 """
+
 import math
 
-from interest import (annuity_future_value, annuity_present_value, continuous_effective_rate,
-                      continuous_from_periodic, continuous_present_value, continuous_value,
-                      effective_rate, loan_installment, periodic_from_continuous,
-                      periodic_from_periodic, periodic_present_value, periodic_value,
-                      perpetuity_present_value, simple_present_value, simple_rate, simple_value)
-from money_market import (coupon_bond_price, implied_rate, money_market_rollover,
-                          money_market_value, yield_to_maturity, zero_coupon_price)
+import interest
+import money_market
 
 
-def f(v: float) -> str:
+def fmt(v: float) -> str:
+    """Four decimals; adding 0.0 turns -0.0 into 0.0."""
     return f"{v + 0.0:.4f}"
 
 
-def report() -> str:
-    out: list[str] = []
-    line = out.append
-    line("Chapter 2: Risk-Free Assets (illustrative numbers, book formulas)")
-
-    line("\n== 2.1.1 Simple interest: V(t) = (1 + t r) P ==")
+def simple_interest(out: list[str]) -> None:
+    out.append("\n== 2.1.1 Simple interest: V(t) = (1 + t r) P ==")
     for t in (0.5, 1.0, 2.0):
-        line(f"P=2000 r=0.08 t={f(t)}: V(t)={f(simple_value(2000.0, 0.08, t))}")
-    line(f"Present value of 1000 due at t=0.5, r=0.10: {f(simple_present_value(1000.0, 0.10, 0.5))}")
-    line(f"Rate turning 1000 into 1100 in 2 years: {f(simple_rate(1000.0, 1100.0, 2.0))}")
+        out.append(
+            f"P=2000 r=0.08 t={fmt(t)}: "
+            f"V(t)={fmt(interest.simple_value(2000.0, 0.08, t))}"
+        )
+    out.append(
+        "Present value of 1000 due at t=0.5, r=0.10: "
+        f"{fmt(interest.simple_present_value(1000.0, 0.10, 0.5))}"
+    )
+    out.append(
+        "Rate turning 1000 into 1100 in 2 years: "
+        f"{fmt(interest.simple_rate(1000.0, 1100.0, 2.0))}"
+    )
 
-    line("\n== 2.1.2 Periodic compounding: V(t) = (1 + r/m)^(t m) P ==")
+
+def periodic_compounding(out: list[str]) -> None:
+    out.append("\n== 2.1.2 Periodic compounding: V(t) = (1 + r/m)^(t m) P ==")
     for m in (1, 2, 4, 12, 365):
-        line(f"P=1000 r=0.12 m={m}: V(1)={f(periodic_value(1000.0, 0.12, m, 1.0))} "
-             f"effective rate={f(effective_rate(0.12, m))}")
-    line(f"Present value of 1000 due in 3 years, r=0.10 annual: "
-         f"{f(periodic_present_value(1000.0, 0.10, 1, 3.0))}")
+        out.append(
+            f"P=1000 r=0.12 m={m}: "
+            f"V(1)={fmt(interest.periodic_value(1000.0, 0.12, m, 1.0))} "
+            f"effective rate={fmt(interest.effective_rate(0.12, m))}"
+        )
+    out.append(
+        "Present value of 1000 due in 3 years, r=0.10 annual: "
+        f"{fmt(interest.periodic_present_value(1000.0, 0.10, 1, 3.0))}"
+    )
 
-    line("\n== 2.1.3 Streams of payments ==")
-    line(f"Annuity of 10 x 1000 at 10%: PV={f(annuity_present_value(1000.0, 0.10, 10))} "
-         f"FV={f(annuity_future_value(1000.0, 0.10, 10))}")
-    line(f"Perpetuity of 100 a year at 5%: PV={f(perpetuity_present_value(100.0, 0.05))}")
-    C = loan_installment(100000.0, 0.06 / 12, 300)
-    line(f"Loan 100000 over 25 years, monthly at 6%: installment={f(C)} "
-         f"balance after 10 years={f(annuity_present_value(C, 0.06 / 12, 180))}")
 
-    line("\n== 2.1.4 Continuous compounding: V(t) = e^(t r) P ==")
-    line(f"P=1000 r=0.12: V(1)={f(continuous_value(1000.0, 0.12, 1.0))} "
-         f"effective rate={f(continuous_effective_rate(0.12))}")
-    line(f"Present value of 1000 due in 3 years, r=0.10 continuous: "
-         f"{f(continuous_present_value(1000.0, 0.10, 3.0))}")
+def streams_of_payments(out: list[str]) -> None:
+    out.append("\n== 2.1.3 Streams of payments ==")
+    out.append(
+        "Annuity of 10 x 1000 at 10%: "
+        f"PV={fmt(interest.annuity_present_value(1000.0, 0.10, 10))} "
+        f"FV={fmt(interest.annuity_future_value(1000.0, 0.10, 10))}"
+    )
+    out.append(
+        "Perpetuity of 100 a year at 5%: "
+        f"PV={fmt(interest.perpetuity_present_value(100.0, 0.05))}"
+    )
+    installment = interest.loan_installment(100000.0, 0.06 / 12, 300)
+    balance = interest.annuity_present_value(installment, 0.06 / 12, 180)
+    out.append(
+        "Loan 100000 over 25 years, monthly at 6%: "
+        f"installment={fmt(installment)} "
+        f"balance after 10 years={fmt(balance)}"
+    )
 
-    line("\n== 2.1.5 Comparing compounding methods (r=0.10, one year) ==")
-    line(f"Growth factor: simple {f(simple_value(1.0, 0.10, 1.0))}, "
-         f"m=1 {f(periodic_value(1.0, 0.10, 1, 1.0))}, m=2 {f(periodic_value(1.0, 0.10, 2, 1.0))}, "
-         f"m=12 {f(periodic_value(1.0, 0.10, 12, 1.0))}, "
-         f"continuous {f(continuous_value(1.0, 0.10, 1.0))}")
-    line(f"12% monthly = {f(continuous_from_periodic(0.12, 12))} continuous")
-    line(f"10% continuous = {f(periodic_from_continuous(0.10, 1))} annual "
-         f"= {f(periodic_from_continuous(0.10, 12))} monthly")
-    line(f"12% quarterly = {f(periodic_from_periodic(0.12, 4, 12))} monthly "
-         f"= {f(periodic_from_periodic(0.12, 4, 1))} annual")
 
-    line("\n== 2.2.1 Zero-coupon bonds ==")
-    line(f"B(0,1)=0.92 implies: annual {f(implied_rate(0.92, 1.0, 1))}, "
-         f"semi-annual {f(implied_rate(0.92, 1.0, 2))}, continuous {f(implied_rate(0.92, 1.0))}")
-    line(f"Face 100, T=2 at 10%: annual {f(100.0 * zero_coupon_price(0.10, 2.0, 1))}, "
-         f"continuous {f(100.0 * zero_coupon_price(0.10, 2.0))}")
+def continuous_compounding(out: list[str]) -> None:
+    out.append("\n== 2.1.4 Continuous compounding: V(t) = e^(t r) P ==")
+    out.append(
+        "P=1000 r=0.12: "
+        f"V(1)={fmt(interest.continuous_value(1000.0, 0.12, 1.0))} "
+        f"effective rate={fmt(interest.continuous_effective_rate(0.12))}"
+    )
+    out.append(
+        "Present value of 1000 due in 3 years, r=0.10 continuous: "
+        f"{fmt(interest.continuous_present_value(1000.0, 0.10, 3.0))}"
+    )
 
-    line("\n== 2.2.2 Coupon bonds: F=100, annual coupon 10, 3 years ==")
+
+def comparing_methods(out: list[str]) -> None:
+    out.append("\n== 2.1.5 Comparing compounding methods (r=0.10, one year) ==")
+    out.append(
+        f"Growth factor: simple {fmt(interest.simple_value(1.0, 0.10, 1.0))}, "
+        f"m=1 {fmt(interest.periodic_value(1.0, 0.10, 1, 1.0))}, "
+        f"m=2 {fmt(interest.periodic_value(1.0, 0.10, 2, 1.0))}, "
+        f"m=12 {fmt(interest.periodic_value(1.0, 0.10, 12, 1.0))}, "
+        f"continuous {fmt(interest.continuous_value(1.0, 0.10, 1.0))}"
+    )
+    out.append(
+        f"12% monthly = {fmt(interest.continuous_from_periodic(0.12, 12))} "
+        "continuous"
+    )
+    out.append(
+        "10% continuous = "
+        f"{fmt(interest.periodic_from_continuous(0.10, 1))} annual = "
+        f"{fmt(interest.periodic_from_continuous(0.10, 12))} monthly"
+    )
+    out.append(
+        "12% quarterly = "
+        f"{fmt(interest.periodic_from_periodic(0.12, 4, 12))} monthly = "
+        f"{fmt(interest.periodic_from_periodic(0.12, 4, 1))} annual"
+    )
+
+
+def zero_coupon_bonds(out: list[str]) -> None:
+    out.append("\n== 2.2.1 Zero-coupon bonds ==")
+    out.append(
+        "B(0,1)=0.92 implies: "
+        f"annual {fmt(money_market.implied_rate(0.92, 1.0, 1))}, "
+        f"semi-annual {fmt(money_market.implied_rate(0.92, 1.0, 2))}, "
+        f"continuous {fmt(money_market.implied_rate(0.92, 1.0))}"
+    )
+    out.append(
+        "Face 100, T=2 at 10%: "
+        f"annual {fmt(100.0 * money_market.zero_coupon_price(0.10, 2.0, 1))}, "
+        f"continuous {fmt(100.0 * money_market.zero_coupon_price(0.10, 2.0))}"
+    )
+
+
+def coupon_bonds(out: list[str]) -> None:
+    out.append("\n== 2.2.2 Coupon bonds: F=100, annual coupon 10, 3 years ==")
     for y in (0.12, 0.10, 0.08):
-        line(f"yield {f(y)}: price {f(coupon_bond_price(100.0, 10.0, 3, y))}")
-    line(f"price 95.0000: yield to maturity {f(yield_to_maturity(95.0, 100.0, 10.0, 3))}")
+        price = money_market.coupon_bond_price(100.0, 10.0, 3, y)
+        out.append(f"yield {fmt(y)}: price {fmt(price)}")
+    ytm = money_market.yield_to_maturity(95.0, 100.0, 10.0, 3)
+    out.append(f"price 95.0000: yield to maturity {fmt(ytm)}")
 
-    line("\n== 2.2.3 Money market account ==")
-    line(f"A(0)=100 at 8% continuous: A(1)={f(money_market_value(100.0, 0.08, 1.0))}")
-    A1 = money_market_rollover(100.0, [0.98, 0.985, 0.97, 0.99])
-    line(f"Rolling over 3-month zero-coupon bonds (B=0.98, 0.985, 0.97, 0.99): A(1)={f(A1)} "
-         f"continuous rate {f(math.log(A1 / 100.0))}")
+
+def money_market_account(out: list[str]) -> None:
+    out.append("\n== 2.2.3 Money market account ==")
+    out.append(
+        "A(0)=100 at 8% continuous: "
+        f"A(1)={fmt(money_market.money_market_value(100.0, 0.08, 1.0))}"
+    )
+    a1 = money_market.money_market_rollover(100.0, [0.98, 0.985, 0.97, 0.99])
+    out.append(
+        "Rolling over 3-month zero-coupon bonds (B=0.98, 0.985, 0.97, 0.99): "
+        f"A(1)={fmt(a1)} continuous rate {fmt(math.log(a1 / 100.0))}"
+    )
+
+
+def report() -> str:
+    """Returns the chapter's worked examples as text."""
+    out = ["Chapter 2: Risk-Free Assets (illustrative numbers, book formulas)"]
+    simple_interest(out)
+    periodic_compounding(out)
+    streams_of_payments(out)
+    continuous_compounding(out)
+    comparing_methods(out)
+    zero_coupon_bonds(out)
+    coupon_bonds(out)
+    money_market_account(out)
     return "\n".join(out) + "\n"
 
 
-if __name__ == "__main__":
+def main() -> None:
     print(report(), end="")
+
+
+if __name__ == "__main__":
+    main()
