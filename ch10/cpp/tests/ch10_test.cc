@@ -133,11 +133,83 @@ void TestTermStructure(Checker& t) {
            "ytm of zero");
 }
 
+// The faster CouponBondPrice, YieldToMaturity and Duration against the
+// straightforward versions they replaced.
+void TestAgainstReference(Checker& t) {
+  auto ref_price =
+      [](const std::vector<double>& ft, const std::vector<double>& fa,
+         const std::vector<double>& mat, const std::vector<double>& pr) {
+        double total = 0.0;
+        for (std::size_t i = 0; i < ft.size(); ++i) {
+          for (std::size_t j = 0; j < mat.size(); ++j) {
+            if (mat[j] == ft[i]) {
+              total += fa[i] * pr[j];
+              break;
+            }
+          }
+        }
+        return total;
+      };
+  auto ref_ytm = [](double price, const std::vector<double>& ft,
+                    const std::vector<double>& fa) {
+    double lo = -1.0, hi = 1.0;
+    for (int it = 0; it < 200; ++it) {
+      const double mid = (lo + hi) / 2;
+      double s = 0.0;
+      for (std::size_t i = 0; i < ft.size(); ++i) {
+        s += fa[i] * std::exp(-mid * ft[i]);
+      }
+      (s > price ? lo : hi) = mid;
+    }
+    return (lo + hi) / 2;
+  };
+  std::vector<double> mat, pr;
+  for (int k = 1; k <= 120; ++k) {
+    mat.push_back(k / 12.0);
+    pr.push_back(std::exp(-0.04 * k / 12.0));
+  }
+  // Sorted, unsorted, off-grid and repeated flow times.
+  const std::vector<std::vector<double>> times = {{1 / 12.0, 0.5, 1.0, 10.0},
+                                                  {10.0, 1.0, 0.5, 1 / 12.0},
+                                                  {0.3, 1.0, 11.0, 2.0, 2.0}};
+  for (const auto& ft : times) {
+    std::vector<double> fa(ft.size(), 5.0);
+    fa.back() = 105.0;
+    t.Expect(CouponBondPrice(ft, fa, mat, pr) == ref_price(ft, fa, mat, pr),
+             "CouponBondPrice matches linear search");
+  }
+  for (int n : {1, 3, 30, 360}) {
+    std::vector<double> ft, fa;
+    for (int i = 1; i <= n; ++i) {
+      ft.push_back(i / 12.0);
+      fa.push_back(i == n ? 100.5 : 0.5);
+    }
+    // Yields inside the bracket, plus prices whose root lies outside it.
+    for (double price : {50.0, 80.0, 100.0, 101.0, 130.0, 1.0, 1e6}) {
+      const double y = YieldToMaturity(price, ft, fa);
+      const double ref = ref_ytm(price, ft, fa);
+      t.Expect(std::abs(y - ref) <= 1e-13, "YieldToMaturity matches bisection");
+    }
+  }
+  const Bond bond = CouponBond(100.0, 6.0, 10, 0.5);
+  for (double tt : {0.0, 0.7, 4.9}) {
+    double s = 0.0;
+    for (const Flow& flow : bond) {
+      if (flow.t > tt) {
+        s += (flow.t - tt) * flow.amount * std::exp(-0.05 * (flow.t - tt));
+      }
+    }
+    t.Expect(Duration(bond, 0.05, tt) == s / Price(bond, 0.05, tt),
+             "Duration bit-identical");
+  }
+}
+
 int RunAllTests() {
   Checker t;
   TestSingleBonds(t);
   TestImmunisation(t);
   TestTermStructure(t);
+  TestAgainstReference(t);
   if (t.failures() == 0) std::printf("All C++ tests passed\n");
   return t.failures() == 0 ? 0 : 1;
 }

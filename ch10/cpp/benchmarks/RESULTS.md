@@ -50,3 +50,28 @@ Term-structure benchmarks use n = 3, 30 and 360 maturities:
   one loop can accumulate both sums. `DynamicHedge` calls `Price` and
   `Duration` several times per step for the same bond and yield.
 - The rest is one `exp` or `log` per element and is fine.
+
+## After: Newton yield, merge-pass coupon pricing, one-pass duration
+
+- `YieldToMaturity` uses Newton's method inside the [-1, 1] bisection
+  bracket, starting from the yield the bond would have if all flows were paid
+  at their mean time. It takes 2 to 7 iterations instead of 200, and agrees
+  with the old bisection to 1e-13, including prices whose root lies outside
+  the bracket.
+- `CouponBondPrice` matches flows to the ascending maturity grid in one merge
+  pass, still by exact `==`. An unsorted flow list restarts the scan, so the
+  result is the same as the linear search for any input (tested).
+- `PriceAndDuration` computes both sums in one loop; `Duration`, `Immunise`
+  and `DynamicHedge` use it, and `DynamicHedge` prices each bond once per
+  step. All values are bit-identical to before.
+
+| Benchmark | Ir before | Ir after | Ir ratio | Time before | Time after |
+|---|---:|---:|---:|---:|---:|
+| `BM_YieldToMaturity/3` | 52,344 | 952 | 55x | 5.2 us | 105 ns |
+| `BM_YieldToMaturity/30` | 483,696 | 12,347 | 39x | 32 us | 0.83 us |
+| `BM_YieldToMaturity/360` | 5,755,776 | 230,282 | 25x | 376 us | 14 us |
+| `BM_CouponBondPrice/360` | 392,058 | 10,089 | 39x | 47 us | 0.80 us |
+| `BM_Duration/360` | 55,456 | 30,252 | 1.8x | 4.0 us | 1.9 us |
+| `BM_Immunise` | 3,363 | 1,030 | 3.3x | 519 ns | 82 ns |
+| `BM_DynamicHedge/260` | 1,389,867 | 289,974 | 4.8x | 103 us | 20 us |
+| `BM_PrintReport` | 684,803 | 500,339 | 1.4x | 55 us | 40 us |
