@@ -1,7 +1,7 @@
 # Chapter 4 — Discrete Time Market Models
 
-Code companion for *Mathematics for Finance* (Capiński & Zastawniak), Chapter 4. There are three
-parallel implementations with the same API, and all three print the same output (`expected_output.txt`).
+Code companion for *Mathematics for Finance* (Capiński & Zastawniak), Chapter 4. There are four
+parallel implementations with the same API, and all four print the same output (`expected_output.txt`).
 
 **The numbers in the report are illustrative.** They are not the book's own examples. The formulas follow the book.
 
@@ -10,15 +10,17 @@ ch04/
   cpp/      C++20, CMake        include/m4f/{strategies,no_arbitrage}.h (header-only), src/report.cc, tests/
   kotlin/   Kotlin 2.1, Gradle  src/main/kotlin/m4f/ch04/{Strategies,NoArbitrage,Report}.kt, src/test/
   python/   Python 3.10+        strategies.py, no_arbitrage.py, ch04.py, ch04_test.py
-  run_all.sh                    build + test + run all three and diff against expected_output.txt
-  check_style.sh                clang-format, cpplint, pyink, pylint, ktlint (whichever are installed)
-  bench.sh                      C++ microbenchmarks (Google Benchmark), --callgrind adds instruction counts
+  rust/     Rust 2024, Cargo    src/{strategies,no_arbitrage,report}.rs, tests/, benches/
+  run_all.sh                    build + test + run all four and diff against expected_output.txt
+  check_style.sh                clang-format, cpplint, pyink, pylint, ktlint, rustfmt + clippy (whichever are installed)
+  bench.sh                      C++ microbenchmarks (Google Benchmark), --callgrind adds instruction counts;
+                                --rust (Criterion), --rust-callgrind, --compare (Rust vs C++ table)
 ```
 
 Positions follow the book's timing: `x(n), y(n)` are chosen at time `n-1` and held over `(n-1, n]`.
 In code, `x[0]` is `x(1)`.
 
-| Section | Formula | API (C++ / Kotlin; Python uses snake_case) |
+| Section | Formula | API (C++ / Kotlin; Python and Rust use snake_case) |
 |---|---|---|
 | 4.1.1 Investment strategies | `V(n) = x(n)S(n) + y(n)A(n)`, self-financing `x(n+1)S(n) + y(n+1)A(n) = V(n)`; `V(N)-V(0) = Σ x ΔS + y ΔA`; `V~(N)-V~(0) = Σ x ΔS~` | `selfFinancing`, `gains`, `discountedGains` |
 | 4.1.2 No arbitrage | `V(0) = 0, V(1) ≥ 0`, `V(1) > 0` with positive probability is impossible iff `min K < r < max K` | `isArbitrageFree`, `arbitrageStrategy`, `oneStepValues` |
@@ -33,13 +35,15 @@ In code, `x[0]` is `x(1)`.
 cmake -S cpp -B cpp/build && cmake --build cpp/build -j && ctest --test-dir cpp/build && cpp/build/ch04
 cd kotlin && ./gradlew test run
 cd python && python3 -m unittest ch04_test && python3 ch04.py
+cd rust && cargo test --release && cargo run --release   # Rust 1.86+
 ```
 
 ## Code style
 
 The code follows the Google style guides for C++ and Python and the Android Kotlin style guide;
+Rust, which has no Google guide, is rustfmt- and clippy-clean;
 see [STYLE.md](../STYLE.md). API names in this README are the Kotlin ones: C++ uses PascalCase
-for functions (`riskNeutralProb` is `RiskNeutralProb`) and Python uses snake_case. Run
+for functions (`riskNeutralProb` is `RiskNeutralProb`) and Python and Rust use snake_case. Run
 `./check_style.sh` to check, or `./check_style.sh --fix` to reformat.
 
 ## Benchmarks
@@ -51,3 +55,9 @@ or downloading v1.9.1) and runs them five times. `./bench.sh --callgrind` also r
 `cpp/benchmarks/callgrind_ir.py`, which reports exact instruction counts per iteration
 under Valgrind; use those to compare versions on a noisy machine. Baseline numbers and
 notes are in [`cpp/benchmarks/RESULTS.md`](cpp/benchmarks/RESULTS.md).
+
+`rust/benches/` has the same cases for Rust: `cases.rs` lists them once, and both the
+Criterion harness (`./bench.sh --rust`) and a callgrind runner (`examples/bench_ir.rs`,
+`./bench.sh --rust-callgrind`) use that list. `./bench.sh --compare` runs both languages and
+prints a Rust vs C++ table of times and instruction counts; the results are in
+[`rust/benches/RESULTS.md`](rust/benches/RESULTS.md).
