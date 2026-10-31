@@ -90,4 +90,28 @@ class Ch11Test {
         val annuity = discountBack(rates, probs, tau, List(numSteps + 1) { 0.0 }, { _, _ -> 1.0 })
         assertNear(plainSum(b0), annuity[0][0])
     }
+
+    /**
+     * The forward-induction bondPrices and the rolling caplet against the lattice computations
+     * they replaced, with node-dependent probabilities.
+     */
+    @Test
+    fun againstReference() {
+        val numSteps = 60
+        val rates = rateLattice(0.05, 0.004, -0.003, numSteps)
+        val probs = List(numSteps) { n ->
+            List(n + 1) { k -> 0.3 + 0.4 * ((0.618 * (n * 7 + k * 3)) % 1.0) }
+        }
+        val b0 = bondPrices(rates, probs, 0.25, numSteps)
+        for (m in 1..numSteps) {
+            val ref = bondLattice(rates, probs, 0.25, m)[0][0]
+            assertTrue(abs(b0[m - 1] - ref) <= 1e-14 * ref, "m = $m")
+        }
+        for (fixing in listOf(0, 1, 7, 59)) {
+            val ref = pricePayments(rates, probs, 0.25, fixing + 1) { n, k ->
+                if (n == fixing) max(floatingRate(rates, 0.25, n, k) - 0.05, 0.0) else 0.0
+            }[0][0]
+            assertEquals(ref, caplet(rates, probs, 0.25, fixing, 0.05))
+        }
+    }
 }

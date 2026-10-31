@@ -83,18 +83,22 @@ def discount_back(
         The value lattice for levels 0..N.
     """
     num_steps = len(terminal) - 1
-    values: Lattice = [[0.0] * (n + 1) for n in range(num_steps + 1)]
-    values[num_steps] = list(terminal)
+    later = list(terminal)
+    values: Lattice = [later]  # From level N down to level 0.
     for n in range(num_steps - 1, -1, -1):
+        row = []
         for k in range(n + 1):
             p = probs[n][k]
-            cont = p * values[n + 1][k + 1] + (1 - p) * values[n + 1][k]
+            cont = p * later[k + 1] + (1 - p) * later[k]
             if payment is not None:
                 cont += payment(n, k)
             v = one_step_price(rates[n][k], tau) * cont
             if early is not None:
                 v = max(v, early(n, k))
-            values[n][k] = v
+            row.append(v)
+        values.append(row)
+        later = row
+    values.reverse()
     return values
 
 
@@ -108,11 +112,27 @@ def bond_lattice(
 def bond_prices(
     rates: Lattice, probs: Lattice, tau: float, num_steps: int
 ) -> list[float]:
-    """B(0,1), ..., B(0,N)."""
-    return [
-        bond_lattice(rates, probs, tau, m)[0][0]
-        for m in range(1, num_steps + 1)
-    ]
+    """B(0,1), ..., B(0,N), by forward induction.
+
+    Q(n,k) is the Arrow-Debreu state price, the time-0 value of 1 paid at node
+    (n,k): B(0,n+1) = sum_k Q(n,k) e^(-r(n,k) tau), and Q(n+1,.) receives
+    Q(n,k) e^(-r(n,k) tau) times p* (up) or 1 - p* (down). One O(N^2) pass
+    instead of a backward induction per maturity; equal to
+    bond_lattice(...)[0][0] up to rounding.
+    """
+    out = []
+    q = [1.0]
+    for n in range(num_steps):
+        nxt = [0.0] * (n + 2)
+        bond = 0.0
+        for k, (q_k, r, p) in enumerate(zip(q, rates[n], probs[n])):
+            d = q_k * one_step_price(r, tau)
+            bond += d
+            nxt[k + 1] += p * d
+            nxt[k] += (1 - p) * d
+        out.append(bond)
+        q = nxt
+    return out
 
 
 def yield_rate(bond_price: float, n: int, maturity: int, tau: float) -> float:
