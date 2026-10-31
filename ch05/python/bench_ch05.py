@@ -8,7 +8,6 @@ from __future__ import annotations
 from collections.abc import Callable
 import platform
 import random
-import statistics
 import sys
 import timeit
 
@@ -27,8 +26,9 @@ def _format(seconds: float) -> str:
 def run(cases: list[tuple[str, Callable[[], object]]]) -> None:
     """Times each case whose name contains sys.argv[1] (all by default).
 
-    Prints the median time per call over 5 repeats (3 for slow cases), each
-    repeat long enough for timeit.autorange (at least 0.2 s).
+    Prints the best time per call over 5 repeats (3 for slow cases), each
+    repeat long enough for timeit.autorange (at least 0.2 s). The minimum is
+    the least disturbed by other load, as the timeit documentation advises.
     """
     pattern = sys.argv[1] if len(sys.argv) > 1 else ""
     print(f"Python {platform.python_version()}")
@@ -38,7 +38,7 @@ def run(cases: list[tuple[str, Callable[[], object]]]) -> None:
         timer = timeit.Timer(func)
         number, total = timer.autorange()
         times = timer.repeat(repeat=3 if total > 2 else 5, number=number)
-        per_call = statistics.median(times) / number
+        per_call = min(times) / number
         print(f"{name:<34} {_format(per_call):>12}", flush=True)
 
 
