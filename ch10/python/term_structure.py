@@ -74,9 +74,10 @@ def coupon_bond_price(
 ) -> float:
     """Price of a coupon bond = sum C_i B(0,t_i), with t_i on the grid.
 
-    Flow times are matched to the grid exactly. The maturities are ascending,
-    so sorted flow times are matched in one merge pass; a flow time earlier
-    than the one before restarts the scan.
+    Flow times are matched to the grid exactly; flows off the grid are
+    skipped. The maturities are ascending, so sorted flow times are matched in
+    one merge pass; a flow time earlier than the one before restarts the
+    scan.
     """
     total = 0.0
     j = 0
@@ -85,10 +86,11 @@ def coupon_bond_price(
         if t < previous:
             j = 0
         previous = t
-        while j < len(maturities) and maturities[j] < t:
-            j += 1
-        if j < len(maturities) and maturities[j] == t:
-            total += amount * prices[j]
+        try:
+            j = maturities.index(t, j)  # Scans on from the last match.
+        except ValueError:
+            continue  # Off the grid: no price, as before.
+        total += amount * prices[j]
     return total
 
 
