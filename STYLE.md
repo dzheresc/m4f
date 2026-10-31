@@ -80,6 +80,9 @@ Fuchsia) follows the community standard, so "Google style" here means:
 - The crate layout mirrors the C++ one: one module per header, the report in
   `report.rs`, tests in `tests/chNN_test.rs`, Criterion benchmarks in
   `benches/`.
+- Hot loops use half-open ranges (`1..n + 1`), not `1..=n`: an inclusive
+  range keeps an extra flag that LLVM does not optimise away (it cost 40%
+  more instructions in chapter 2's yield solver).
 - Report text is written with `write!` into any `fmt::Write`, so the binary
   prints it and the tests and benchmarks capture it in a `String`.
 

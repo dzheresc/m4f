@@ -1,7 +1,7 @@
 # Chapter 2 — Risk-Free Assets
 
-Code companion for *Mathematics for Finance* (Capiński & Zastawniak), Chapter 2. There are three
-parallel implementations with the same API, and all three print the same output (`expected_output.txt`).
+Code companion for *Mathematics for Finance* (Capiński & Zastawniak), Chapter 2. There are four
+parallel implementations with the same API, and all four print the same output (`expected_output.txt`).
 
 **The numbers in the report are illustrative.** They are not the book's own examples. The formulas follow the book.
 
@@ -10,9 +10,11 @@ ch02/
   cpp/      C++20, CMake        include/m4f/{interest,money_market}.h (header-only), src/report.cc, tests/
   kotlin/   Kotlin 2.1, Gradle  src/main/kotlin/m4f/ch02/{Interest,MoneyMarket,Report}.kt, src/test/
   python/   Python 3.10+        interest.py, money_market.py, ch02.py, ch02_test.py
-  run_all.sh                    build + test + run all three and diff against expected_output.txt
-  check_style.sh                clang-format, cpplint, pyink, pylint, ktlint (whichever are installed)
-  bench.sh                      C++ microbenchmarks (Google Benchmark), --callgrind adds instruction counts
+  rust/     Rust 2024, Cargo    src/{interest,money_market,report}.rs, tests/, benches/
+  run_all.sh                    build + test + run all four and diff against expected_output.txt
+  check_style.sh                clang-format, cpplint, pyink, pylint, ktlint, rustfmt + clippy (whichever are installed)
+  bench.sh                      C++ microbenchmarks (Google Benchmark), --callgrind adds instruction counts;
+                                --rust (Criterion), --rust-callgrind, --compare (Rust vs C++ table)
 ```
 
 | Section | Formula | API (Kotlin; C++ uses PascalCase, Python snake_case) |
@@ -33,11 +35,13 @@ ch02/
 cmake -S cpp -B cpp/build && cmake --build cpp/build -j && ctest --test-dir cpp/build && cpp/build/ch02
 cd kotlin && gradle test run          # or ./gradlew after `gradle wrapper`
 cd python && python3 -m unittest ch02_test && python3 ch02.py
+cd rust && cargo test --release && cargo run --release   # Rust 1.86+
 ```
 
 ## Code style
 
 The code follows the Google style guides for C++ and Python and the Android Kotlin style guide;
+Rust, which has no Google guide, is rustfmt- and clippy-clean;
 see [STYLE.md](../STYLE.md). Run `./check_style.sh` to check, or `./check_style.sh --fix` to
 reformat.
 
@@ -50,3 +54,9 @@ or downloading v1.9.1) and runs them five times. `./bench.sh --callgrind` also r
 `cpp/benchmarks/callgrind_ir.py`, which reports exact instruction counts per iteration
 under Valgrind; use those to compare versions on a noisy machine. Baseline numbers and
 notes are in [`cpp/benchmarks/RESULTS.md`](cpp/benchmarks/RESULTS.md).
+
+`rust/benches/` has the same cases for Rust: `cases.rs` lists them once, and both the
+Criterion harness (`./bench.sh --rust`) and a callgrind runner (`examples/bench_ir.rs`,
+`./bench.sh --rust-callgrind`) use that list. `./bench.sh --compare` runs both languages and
+prints a Rust vs C++ table of times and instruction counts; the results are in
+[`rust/benches/RESULTS.md`](rust/benches/RESULTS.md).
