@@ -20,6 +20,6 @@ Builds: CMake for C++, Gradle for Kotlin, Cargo for Rust; the Python code uses o
 
 Run `./run_all.sh` inside a chapter to build, test and diff every language.
 
-Benchmarks and before/after results: [C++](PERFORMANCE.md), [Kotlin](PERFORMANCE_KOTLIN.md), [Python](PERFORMANCE_PYTHON.md). Each chapter runs them with `./bench.sh`, `./bench.sh --kotlin`, `./bench.sh --python` or `./bench.sh --rust`; `./bench.sh --compare` prints a Rust vs C++ table.
+Benchmarks and before/after results: [C++](PERFORMANCE.md), [Kotlin](PERFORMANCE_KOTLIN.md), [Python](PERFORMANCE_PYTHON.md); Rust vs C++: [Rust](PERFORMANCE_RUST.md). Each chapter runs them with `./bench.sh`, `./bench.sh --kotlin`, `./bench.sh --python` or `./bench.sh --rust`; `./bench.sh --compare` prints a Rust vs C++ table.
 
 Code style: Google style guides (Android style for Kotlin; rustfmt and clippy for Rust, which has no Google guide), see [STYLE.md](STYLE.md). Chapters are converted one at a time; a converted chapter has a `check_style.sh`.
