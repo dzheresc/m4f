@@ -21,10 +21,10 @@ struct RiskNeutralProbs {
 };
 
 struct TrinomialModel {
-  double u;
-  double m;
-  double d;
-  double r;
+  double u;  // Up return per step.
+  double m;  // Middle return per step.
+  double d;  // Down return per step.
+  double r;  // Money market return per step.
 
   // (p_u, p_m, p_d) with p_u u + p_m m + p_d d = r for a chosen p_m; the
   // risk-neutral probability is not unique in this model.
