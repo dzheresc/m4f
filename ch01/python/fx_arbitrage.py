@@ -50,48 +50,65 @@ class FxMarket:
         self._currencies = sorted(
             {c for q in quotes for c in (q.base, q.quote)}
         )
+        self._index = {c: i for i, c in enumerate(self._currencies)}
+        # best[i][j]: index into _legs of the best leg from currency i to
+        # currency j, or None. Built once so that the search does no string
+        # comparisons. Legs are scanned in order and only a strictly better
+        # rate replaces the current best, so the first dealer wins ties.
+        n = len(self._currencies)
+        self._best: list[list[int | None]] = [[None] * n for _ in range(n)]
+        for k, leg in enumerate(self._legs):
+            row = self._best[self._index[leg.from_]]
+            j = self._index[leg.to]
+            best = row[j]
+            if best is None or leg.rate > self._legs[best].rate:
+                row[j] = k
 
     def best_leg(self, from_: str, to: str) -> FxLeg | None:
         """Best direct conversion from_ -> to (first dealer wins ties)."""
-        best = None
-        for leg in self._legs:
-            if (
-                leg.from_ == from_
-                and leg.to == to
-                and (best is None or leg.rate > best.rate)
-            ):
-                best = leg
-        return best
+        i = self._index.get(from_)
+        j = self._index.get(to)
+        if i is None or j is None:
+            return None
+        k = self._best[i][j]
+        return None if k is None else self._legs[k]
 
     def best_cycle(self, start: str) -> FxCycle:
         """Most profitable round trip start -> ... -> start.
 
-        Searches exhaustively through distinct currencies, which is fine for a
-        handful of currencies.
+        Searches exhaustively through distinct currencies, by currency and leg
+        index, which is fine for a handful of currencies.
         """
-        best = FxCycle((), 0.0)
-        path: list[FxLeg] = []
-        visited = [start]
+        s = self._index.get(start)
+        if s is None:
+            return FxCycle((), 0.0)
+        legs = self._legs
+        best_table = self._best
+        visited = [False] * len(self._currencies)
+        visited[s] = True
+        path: list[int] = []
+        best_path: list[int] = []
+        best_growth = 0.0
 
-        def search(at: str, growth: float) -> None:
-            nonlocal best
-            for nxt in self._currencies:
-                leg = self.best_leg(at, nxt)
-                if leg is None:
+        def search(at: int, growth: float) -> None:
+            nonlocal best_path, best_growth
+            for nxt, k in enumerate(best_table[at]):
+                if k is None:
                     continue
-                closes = nxt == start
-                if (not closes and nxt in visited) or (closes and not path):
+                closes = nxt == s
+                if (not closes and visited[nxt]) or (closes and not path):
                     continue
-                path.append(leg)
-                new_growth = growth * leg.rate
+                path.append(k)
+                new_growth = growth * legs[k].rate
                 if closes:
-                    if new_growth > best.growth:
-                        best = FxCycle(tuple(path), new_growth)
+                    if new_growth > best_growth:
+                        best_growth = new_growth
+                        best_path = path.copy()
                 else:
-                    visited.append(nxt)
+                    visited[nxt] = True
                     search(nxt, new_growth)
-                    visited.pop()
+                    visited[nxt] = False
                 path.pop()
 
-        search(start, 1.0)
-        return best
+        search(s, 1.0)
+        return FxCycle(tuple(legs[k] for k in best_path), best_growth)
