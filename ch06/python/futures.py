@@ -51,7 +51,9 @@ def margin_account(
 
 
 # Section 6.2.2: hedging with futures. Selling h futures per unit of spot
-# exposure turns a spot change dS into dS - h df.
+# exposure turns a spot change dS into dS - h df. In scenario i, with
+# probability p[i], the spot price changes by ds[i] and the futures price by
+# df[i].
 def min_variance_hedge_ratio(
     ds: Sequence[float], df: Sequence[float], p: Sequence[float]
 ) -> float:

@@ -1,5 +1,7 @@
 // Section 6.1, forward contracts, with continuous compounding at rate r.
 // Times are in years; F(t, T) is the forward price at t for delivery at T.
+// Names: s = S(t) and s0 = S(0) are spot prices, f0 = F(0, T) and ft = F(t, T) forward prices,
+// and tau = T - t the time left to delivery.
 package m4f.ch06
 
 import kotlin.math.abs
