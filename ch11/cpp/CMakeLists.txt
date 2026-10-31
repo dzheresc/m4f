@@ -8,14 +8,14 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-add_library(m4f_ch11 src/report.cpp)
+add_library(m4f_ch11 src/report.cc)
 target_include_directories(m4f_ch11 PUBLIC include)
 target_compile_options(m4f_ch11 PUBLIC -Wall -Wextra -Wpedantic)
 
-add_executable(ch11 src/main.cpp)
+add_executable(ch11 src/main.cc)
 target_link_libraries(ch11 PRIVATE m4f_ch11)
 
 enable_testing()
-add_executable(ch11_tests tests/test_ch11.cpp)
+add_executable(ch11_tests tests/ch11_test.cc)
 target_link_libraries(ch11_tests PRIVATE m4f_ch11)
 add_test(NAME ch11_tests COMMAND ch11_tests)

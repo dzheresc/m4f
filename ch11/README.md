@@ -7,10 +7,11 @@ parallel implementations with the same API, and all three print the same output 
 
 ```
 ch11/
-  cpp/      C++20, CMake        include/m4f/{rate_tree,derivatives}.hpp (header-only), src/report.cpp, tests/
+  cpp/      C++20, CMake        include/m4f/{rate_tree,derivatives}.h (header-only), src/report.cc, tests/
   kotlin/   Kotlin 2.1, Gradle  src/main/kotlin/m4f/ch11/{RateTree,Derivatives,Report}.kt, src/test/
-  python/   Python 3.10+        rate_tree.py, derivatives.py, ch11.py, test_ch11.py
+  python/   Python 3.10+        rate_tree.py, derivatives.py, ch11.py, ch11_test.py
   run_all.sh                    build + test + run all three and diff against expected_output.txt
+  check_style.sh                clang-format, cpplint, pyink, pylint, ktlint (whichever are installed)
 ```
 
 The short rate lives on a recombining binomial lattice: node `(n,k)` after `n` steps of length `τ`, `k` of them
@@ -33,5 +34,12 @@ risk-neutral probabilities `p*(n,k)` (a lattice too, constant in the report):
 ./run_all.sh
 cmake -S cpp -B cpp/build && cmake --build cpp/build -j && ctest --test-dir cpp/build && cpp/build/ch11
 cd kotlin && ./gradlew test run
-cd python && python3 -m unittest test_ch11 && python3 ch11.py
+cd python && python3 -m unittest ch11_test && python3 ch11.py
 ```
+
+## Code style
+
+The code follows the Google style guides for C++ and Python and the Android Kotlin style guide;
+see [STYLE.md](../STYLE.md). API names in this README are the Kotlin ones: C++ uses PascalCase
+for functions (`riskNeutralProb` is `RiskNeutralProb`) and Python uses snake_case. Run
+`./check_style.sh` to check, or `./check_style.sh --fix` to reformat.
