@@ -12,6 +12,7 @@ ch05/
   python/   Python 3.10+        risk.py, portfolio.py, ch05.py, ch05_test.py
   run_all.sh                    build + test + run all three and diff against expected_output.txt
   check_style.sh                clang-format, cpplint, pyink, pylint, ktlint (whichever are installed)
+  bench.sh                      C++ microbenchmarks (Google Benchmark), --callgrind adds instruction counts
 ```
 
 | Section | Formula | API (C++ / Kotlin; Python uses snake_case) |
@@ -42,3 +43,13 @@ The code follows the Google style guides for C++ and Python and the Android Kotl
 see [STYLE.md](../STYLE.md). API names in this README are the Kotlin ones: C++ uses PascalCase
 for functions (`riskNeutralProb` is `RiskNeutralProb`) and Python uses snake_case. Run
 `./check_style.sh` to check, or `./check_style.sh --fix` to reformat.
+
+## Benchmarks
+
+`cpp/benchmarks/` holds Google Benchmark microbenchmarks for the C++ code. They are
+off in a normal build; `./bench.sh` configures a separate Release build in
+`cpp/build-bench` with `-DM4F_BUILD_BENCHMARKS=ON` (using an installed Google Benchmark,
+or downloading v1.9.1) and runs them five times. `./bench.sh --callgrind` also runs
+`cpp/benchmarks/callgrind_ir.py`, which reports exact instruction counts per iteration
+under Valgrind; use those to compare versions on a noisy machine. Baseline numbers and
+notes are in [`cpp/benchmarks/RESULTS.md`](cpp/benchmarks/RESULTS.md).
