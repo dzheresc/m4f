@@ -51,19 +51,42 @@ inline double NormPdf(double x) {
   return std::exp(-x * x / 2) / 2.506628274631000502;
 }
 
-// Quantile of the standard normal, by bisection on NormCdf (0 < p < 1).
+// Inverse of NormCdf. Acklam's rational approximation (relative error below
+// 1.2e-9) followed by one Halley step against NormCdf itself, which brings it
+// to full double precision, about the cost of two NormCdf calls. p outside
+// (0, 1) returns -40 or 40.
 inline double NormInv(double p) {
-  double lo = -40.0;
-  double hi = 40.0;
-  for (int i = 0; i < 200; ++i) {
-    const double mid = (lo + hi) / 2;
-    if (NormCdf(mid) < p) {
-      lo = mid;
-    } else {
-      hi = mid;
-    }
+  if (!(p > 0)) return -40.0;
+  if (!(p < 1)) return 40.0;
+  constexpr double a[] = {-3.969683028665376e+01, 2.209460984245205e+02,
+                          -2.759285104469687e+02, 1.383577518672690e+02,
+                          -3.066479806614716e+01, 2.506628277459239e+00};
+  constexpr double b[] = {-5.447609879822406e+01, 1.615858368580409e+02,
+                          -1.556989798598866e+02, 6.680131188771972e+01,
+                          -1.328068155288572e+01};
+  constexpr double c[] = {-7.784894002430293e-03, -3.223964580411365e-01,
+                          -2.400758277161838e+00, -2.549732539343734e+00,
+                          4.374664141464968e+00,  2.938163982698783e+00};
+  constexpr double d[] = {7.784695709041462e-03, 3.224671290700398e-01,
+                          2.445134137142996e+00, 3.754408661907416e+00};
+  constexpr double kLow = 0.02425;
+  double x;
+  if (p < kLow || p > 1 - kLow) {
+    // Tails: q = sqrt(-2 ln(min(p, 1-p))).
+    const double q = std::sqrt(-2 * std::log(p < kLow ? p : 1 - p));
+    x = (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+        ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+    if (p > 1 - kLow) x = -x;
+  } else {
+    const double q = p - 0.5;
+    const double r = q * q;
+    x = (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) *
+        q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
   }
-  return (lo + hi) / 2;
+  // Halley step on NormCdf(x) - p.
+  const double e = NormCdf(x) - p;
+  const double u = e * 2.506628274631000502 * std::exp(x * x / 2);
+  return x - u / (1 + x * u / 2);
 }
 
 inline std::pair<double, double> D1D2(double s, double strike, double r,
@@ -124,21 +147,23 @@ inline Greeks BsGreeks(double s, double strike, double r, double sigma,
   const double disc = strike * std::exp(-r * maturity);
   const double gamma = n1 / (s * sigma * std::sqrt(maturity));
   const double vega = s * n1 * std::sqrt(maturity);
+  // Each NormCdf is evaluated once; std::exp may set errno, so the compiler
+  // cannot merge repeated calls on its own.
+  const double theta0 = -s * n1 * sigma / (2 * std::sqrt(maturity));
   if (is_call) {
-    return {
-        s * NormCdf(d1) - disc * NormCdf(d2),
-        NormCdf(d1),
-        gamma,
-        -s * n1 * sigma / (2 * std::sqrt(maturity)) - r * disc * NormCdf(d2),
-        vega,
-        maturity * disc * NormCdf(d2)};
+    const double nd1 = NormCdf(d1);
+    const double nd2 = NormCdf(d2);
+    return {s * nd1 - disc * nd2,    nd1,  gamma,
+            theta0 - r * disc * nd2, vega, maturity * disc * nd2};
   }
-  return {disc * NormCdf(-d2) - s * NormCdf(-d1),
+  const double nmd1 = NormCdf(-d1);
+  const double nmd2 = NormCdf(-d2);
+  return {disc * nmd2 - s * nmd1,
           NormCdf(d1) - 1,
           gamma,
-          -s * n1 * sigma / (2 * std::sqrt(maturity)) + r * disc * NormCdf(-d2),
+          theta0 + r * disc * nmd2,
           vega,
-          -maturity * disc * NormCdf(-d2)};
+          -maturity * disc * nmd2};
 }
 
 }  // namespace m4f::ch09

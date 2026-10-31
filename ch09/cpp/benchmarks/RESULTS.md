@@ -48,3 +48,23 @@ which is exact and repeatable.
 - `RebalancePath` costs about 70 ns per option per step (one delta and one
   price), plus a small `shifted` vector allocated at every step. Fine at these
   sizes.
+
+## After: closed-form `NormInv`, cached `NormCdf` in `BsGreeks`
+
+`NormInv` now uses Acklam's rational approximation followed by one Halley step
+against `NormCdf`. It agrees with the old bisection to within one ulp of `p`
+divided by the density, across p from 1e-100 to 1 - 1e-6 (new test
+`TestNormInvAgainstBisection`). `BsGreeks` evaluates each `NormCdf` once; its
+results are bit-identical. The report output is unchanged.
+
+| Benchmark | Ir before | Ir after | Ir ratio | Time before | Time after |
+|---|---:|---:|---:|---:|---:|
+| `BM_NormInv` | 27,273 | 253 | 108x | 5.3 us | 31 ns |
+| `BM_Quantile` | 27,224 | 283 | 96x | 5.2 us | 200 ns |
+| `BM_ValueAtRisk` | 25,911 | 680 | 38x | 1.9 us | 63 ns |
+| `BM_BsGreeksCall` | 854 | 509 | 1.7x | 76 ns | 51 ns |
+| `BM_BsGreeksPut` | 820 | 631 | 1.3x | 72 ns | 60 ns |
+| `BM_PrintReport` | 1,484,238 | 748,021 | 2.0x | 172 us | 71 us |
+
+`BM_Quantile` stays at about 200 ns although it runs few instructions; its
+remaining cost is the latency of the dependent `log`, `sqrt` and `exp` calls.
