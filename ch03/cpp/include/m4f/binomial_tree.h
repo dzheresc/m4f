@@ -7,11 +7,15 @@
 
 namespace m4f::ch03 {
 
-// C(n, k) p^k (1-p)^(n-k).
+// C(n, k) p^k (1-p)^(n-k), computed in log space: C(n, k) alone passes
+// DBL_MAX near n = 1030 even when the probability itself is tiny.
 inline double BinomialProb(int n, int k, double p) {
-  double c = 1.0;
-  for (int i = 0; i < k; ++i) c = c * (n - i) / (i + 1);
-  return c * std::pow(p, k) * std::pow(1 - p, n - k);
+  if (k < 0 || k > n) return 0.0;
+  if (p <= 0) return k == 0 ? 1.0 : 0.0;
+  if (p >= 1) return k == n ? 1.0 : 0.0;
+  const double log_c =
+      std::lgamma(n + 1.0) - std::lgamma(k + 1.0) - std::lgamma(n - k + 1.0);
+  return std::exp(log_c + k * std::log(p) + (n - k) * std::log1p(-p));
 }
 
 struct BinomialTree {
@@ -28,11 +32,21 @@ struct BinomialTree {
   // E(K(n)) = p u + (1-p) d, the same for every step.
   double ExpectedReturn(double p) const { return p * u + (1 - p) * d; }
 
-  // E(S(n)) as a sum over the n+1 nodes at step n.
+  // E(S(n)) as a sum over the n+1 nodes at step n, O(n). Each term
+  // C(n, k) p^k (1-p)^(n-k) S(n, k) is built in log space, updating log C(n, k)
+  // from k to k+1, so nothing overflows for large n.
   double ExpectedPrice(int n, double p) const {
+    if (p <= 0) return Price(n, 0);
+    if (p >= 1) return Price(n, n);
+    const double log_up = std::log(p) + std::log1p(u);
+    const double log_down = std::log1p(-p) + std::log1p(d);
+    double log_c = 0.0;
     double sum = 0.0;
-    for (int k = 0; k <= n; ++k) sum += Price(n, k) * BinomialProb(n, k, p);
-    return sum;
+    for (int k = 0; k <= n; ++k) {
+      sum += std::exp(log_c + k * log_up + (n - k) * log_down);
+      if (k < n) log_c += std::log(n - k) - std::log(k + 1.0);
+    }
+    return s0 * sum;
   }
 
   // 3.2.1 Risk-neutral probability.

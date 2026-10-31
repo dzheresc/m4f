@@ -58,6 +58,17 @@ void TestBinomialTree(Checker& t) {
   double total = 0;
   for (int k = 0; k <= 5; ++k) total += BinomialProb(5, k, 0.3);
   t.Expect(Near(total, 1), "binomial probabilities sum to 1");
+  // Large n: C(2000, 1000) alone overflows a double.
+  double big_total = 0;
+  for (int k = 0; k <= 2000; ++k) big_total += BinomialProb(2000, k, 0.6);
+  t.Expect(Near(big_total, 1), "large-n probabilities sum to 1");
+  t.Expect(Near(BinomialProb(2000, 1000, 0.5), 0.017839011, 1e-9),
+           "C(2000,1000)/2^2000");
+  const BinomialTree long_tree{100, 0.02, -0.01, 0.005};
+  t.Expect(Near(long_tree.ExpectedPrice(2000, 0.6) /
+                    (100 * std::pow(1 + 0.6 * 0.02 + 0.4 * -0.01, 2000)),
+                1),
+           "E(S(2000)) closed form");
   const BinomialTree tree{60, 0.2, -0.1, 0.05};
   const double q = tree.RiskNeutralProb();
   t.Expect(tree.IsArbitrageFree(), "d < r < u");

@@ -57,3 +57,26 @@ which is exact and repeatable.
 - `Returns` and `LogReturns` do not reserve their output vector; at these sizes
   the reallocations are a small share next to the `log` calls.
 - `BinomialExpectedPrice` is O(1) in N (a single `pow`), as it should be.
+
+## After: log-space binomial probabilities, O(n) expected price
+
+`BinomialProb` now works in log space (`lgamma` in C++ and Python, a sum of
+logs in Kotlin), which fixes the overflow in all three languages; new tests
+check that the probabilities for n = 2000 sum to 1 and that
+`C(2000,1000)/2^2000` is right. `ExpectedPrice` (C++) sums the n+1 node terms
+in O(n), updating `log C(n,k)` from term to term, and matches the closed form
+`S(0) (1 + p u + (1-p) d)^n` at n = 2000. The report is byte-identical in all
+three languages.
+
+| Benchmark | Time before | Time after | Ir before | Ir after | Ir ratio |
+|---|---:|---:|---:|---:|---:|
+| `BM_BinomialProb/3` | 30 ns | 58 ns | 312 | 654 | 0.48x |
+| `BM_BinomialProb/1000` | 2.5 us | 62 ns | 5,817 | 691 | 8.4x |
+| `BM_ExpectedPrice/3` | 154 ns | 59 ns | 1,946 | 754 | 2.6x |
+| `BM_ExpectedPrice/100` | 29 us | 1.6 us | 112,914 | 20,639 | 5.5x |
+| `BM_ExpectedPrice/1000` | 2.7 ms | 16 us | 6,094,545 | 209,782 | 29x |
+
+`BinomialProb` for small n is now about twice as expensive (three `lgamma`
+calls instead of a short loop), in exchange for constant cost and correct
+results at any n. `ExpectedPrice(1030, ...)` used to return `inf`; it now
+returns the right value.

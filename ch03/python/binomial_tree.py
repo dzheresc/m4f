@@ -7,13 +7,23 @@ book's letters (Google Python style guide, section 3.16.5).
 
 from __future__ import annotations
 
+import math
+
 
 def binomial_prob(n: int, k: int, p: float) -> float:
-    """C(n, k) p^k (1-p)^(n-k)."""
-    c = 1.0
-    for i in range(k):
-        c = c * (n - i) / (i + 1)
-    return c * p**k * (1 - p) ** (n - k)
+    """C(n, k) p^k (1-p)^(n-k).
+
+    Computed in log space: C(n, k) alone overflows a float near n = 1030 even
+    when the probability itself is tiny.
+    """
+    if k < 0 or k > n:
+        return 0.0
+    if p <= 0:
+        return 1.0 if k == 0 else 0.0
+    if p >= 1:
+        return 1.0 if k == n else 0.0
+    log_c = math.lgamma(n + 1) - math.lgamma(k + 1) - math.lgamma(n - k + 1)
+    return math.exp(log_c + k * math.log(p) + (n - k) * math.log1p(-p))
 
 
 class BinomialTree:

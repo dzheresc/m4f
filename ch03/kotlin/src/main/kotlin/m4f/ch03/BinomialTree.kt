@@ -2,15 +2,24 @@
 // steps, with the money market growing at r per step.
 package m4f.ch03
 
+import kotlin.math.exp
+import kotlin.math.ln
+import kotlin.math.ln1p
 import kotlin.math.pow
 
-/** C(n, k) p^k (1-p)^(n-k). */
+/**
+ * C(n, k) p^k (1-p)^(n-k), computed in log space: C(n, k) alone overflows a Double near
+ * n = 1030 even when the probability itself is tiny.
+ */
 fun binomialProb(n: Int, k: Int, p: Double): Double {
-    var c = 1.0
+    if (k < 0 || k > n) return 0.0
+    if (p <= 0) return if (k == 0) 1.0 else 0.0
+    if (p >= 1) return if (k == n) 1.0 else 0.0
+    var logC = 0.0
     for (i in 0 until k) {
-        c = c * (n - i) / (i + 1)
+        logC += ln((n - i).toDouble()) - ln((i + 1).toDouble())
     }
-    return c * p.pow(k) * (1 - p).pow(n - k)
+    return exp(logC + k * ln(p) + (n - k) * ln1p(-p))
 }
 
 /** Stock S(0) = [s0] moving by [u] or [d] each step, money market at [r] per step. */

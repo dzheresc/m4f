@@ -32,6 +32,9 @@ class Ch03Test {
     @Test
     fun binomial() {
         assertNear(1.0, (0..5).sumOf { binomialProb(5, it, 0.3) })
+        // Large n: C(2000, 1000) alone overflows a Double.
+        assertNear(1.0, (0..2000).sumOf { binomialProb(2000, it, 0.6) })
+        assertNear(0.017839011, binomialProb(2000, 1000, 0.5))
         val tree = BinomialTree(60.0, 0.2, -0.1, 0.05)
         val q = tree.riskNeutralProb()
         assertTrue(tree.isArbitrageFree())
