@@ -7,10 +7,11 @@ parallel implementations with the same API, and all three print the same output 
 
 ```
 ch08/
-  cpp/      C++20, CMake        include/m4f/{binomial_pricing,black_scholes}.hpp (header-only), src/report.cpp, tests/
+  cpp/      C++20, CMake        include/m4f/{binomial_pricing,black_scholes}.h (header-only), src/report.cc, tests/
   kotlin/   Kotlin 2.1, Gradle  src/main/kotlin/m4f/ch08/{BinomialPricing,BlackScholes,Report}.kt, src/test/
-  python/   Python 3.10+        binomial_pricing.py, black_scholes.py, ch08.py, test_ch08.py
+  python/   Python 3.10+        binomial_pricing.py, black_scholes.py, ch08.py, ch08_test.py
   run_all.sh                    build + test + run all three and diff against expected_output.txt
+  check_style.sh                clang-format, cpplint, pyink, pylint, ktlint (whichever are installed)
 ```
 
 Sections 8.1–8.2 use the book's binomial tree with returns `u`, `d` and `r` per step. Section 8.3 switches to
@@ -34,5 +35,12 @@ agree across languages to the last printed digit.
 ./run_all.sh
 cmake -S cpp -B cpp/build && cmake --build cpp/build -j && ctest --test-dir cpp/build && cpp/build/ch08
 cd kotlin && ./gradlew test run
-cd python && python3 -m unittest test_ch08 && python3 ch08.py
+cd python && python3 -m unittest ch08_test && python3 ch08.py
 ```
+
+## Code style
+
+The code follows the Google style guides for C++ and Python and the Android Kotlin style guide;
+see [STYLE.md](../STYLE.md). API names in this README are the Kotlin ones: C++ uses PascalCase
+for functions (`riskNeutralProb` is `RiskNeutralProb`) and Python uses snake_case. Run
+`./check_style.sh` to check, or `./check_style.sh --fix` to reformat.
